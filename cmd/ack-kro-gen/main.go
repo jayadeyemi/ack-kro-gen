@@ -74,12 +74,14 @@ func main() {
 						return fmt.Errorf("render %s: %w", gs.Service, err)
 					}
 
-					// Build RGD and write
-					file := filepath.Join(absOut, fmt.Sprintf("%s.rgd.yaml", gs.Service))
-					if err := kro.EmitRGD(gs, r, file, absOut); err != nil {
-						return fmt.Errorf("emit rgd for %s: %w", gs.Service, err)
+					// Write separate CRD and controller graphs named from their RGD metadata.name
+					wrote, err := kro.EmitRGDs(gs, r, absOut)
+					if err != nil {
+						return fmt.Errorf("emit rgds for %s: %w", gs.Service, err)
 					}
-					log.Printf("wrote %s", file)
+					for _, f := range wrote {
+						log.Printf("wrote %s", f)
+					}
 					return nil
 				})
 			}
