@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dummy.fullname" . | default (printf "%s-controller" .Release.Name) }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ack-controller
+  template:
+    metadata:
+      labels:
+        app: ack-controller
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: controller
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          args:
+            - "--aws-region={{ .Values.aws.region }}"
+            - "--log-level={{ .Values.logLevel }}"
+            - "--log-dev={{ .Values.logDev }}"
+          ports:
+            - containerPort: 8080

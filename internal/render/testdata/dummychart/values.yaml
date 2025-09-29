@@ -1,0 +1,11 @@
+image:
+  repository: "__KRO_IMAGE_REPO__"
+  tag: "__KRO_IMAGE_TAG__"
+serviceAccount:
+  name: "__KRO_SA_NAME__"
+  annotations:
+    eks.amazonaws.com/role-arn: "__KRO_IRSA_ARN__"
+logLevel: "__KRO_LOG_LEVEL__"
+logDev: "__KRO_LOG_DEV__"
+aws:
+  region: "__KRO_AWS_REGION__"
