@@ -1,0 +1,511 @@
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: ack-ec2-ctrl.kro.run
+  namespace: kro
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: Ec2controller
+    spec:
+      name: ${schema.spec.name}
+      namespace: ${schema.spec.namespace}
+      values:
+        aws:
+          accountID: ${schema.spec.values.aws.accountID}
+          region: ${schema.spec.values.aws.region}
+        deployment:
+          containerPort: 8080
+          replicas: 1
+        iamRole:
+          maxSessionDuration: 3600
+          oidcProvider: ${schema.spec.values.iamRole.oidcProvider}
+        image:
+          deletePolicy: ${schema.spec.values.image.deletePolicy}
+          repository: ${schema.spec.values.image.repository}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          tag: ${schema.spec.values.image.tag}
+        log:
+          enabled: ${schema.spec.values.log.enabled}
+          level: ${schema.spec.values.log.level}
+        serviceAccount:
+          name: ${schema.spec.values.serviceAccount.name}
+  resources:
+    - id: serviceaccount---schema-spec-values-serviceaccount-name
+      template:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          annotations:
+            eks.amazonaws.com/role-arn: ${ackIamRole.status.ackResourceMetadata.arn}
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.values.serviceAccount.name}
+          namespace: ${schema.spec.namespace}
+    - id: clusterrole---schema-spec-name--ec2-chart
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart
+        rules:
+          - apiGroups:
+              - ""
+            resources:
+              - configmaps
+              - secrets
+            verbs:
+              - get
+              - list
+              - patch
+              - watch
+          - apiGroups:
+              - ""
+            resources:
+              - namespaces
+            verbs:
+              - get
+              - list
+              - watch
+          - apiGroups:
+              - ec2.services.k8s.aws
+            resources:
+              - capacityreservations
+              - dhcpoptions
+              - elasticipaddresses
+              - flowlogs
+              - instances
+              - internetgateways
+              - launchtemplates
+              - natgateways
+              - networkacls
+              - routetables
+              - securitygroups
+              - subnets
+              - transitgateways
+              - transitgatewayvpcattachments
+              - vpcendpoints
+              - vpcendpointserviceconfigurations
+              - vpcpeeringconnections
+              - vpcs
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - patch
+              - update
+              - watch
+          - apiGroups:
+              - ec2.services.k8s.aws
+            resources:
+              - capacityreservations/status
+              - dhcpoptions/status
+              - elasticipaddresses/status
+              - flowlogs/status
+              - instances/status
+              - internetgateways/status
+              - launchtemplates/status
+              - natgateways/status
+              - networkacls/status
+              - routetables/status
+              - securitygroups/status
+              - subnets/status
+              - transitgateways/status
+              - transitgatewayvpcattachments/status
+              - vpcendpoints/status
+              - vpcendpointserviceconfigurations/status
+              - vpcpeeringconnections/status
+              - vpcs/status
+            verbs:
+              - get
+              - patch
+              - update
+          - apiGroups:
+              - services.k8s.aws
+            resources:
+              - adoptedresources
+              - fieldexports
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - patch
+              - update
+              - watch
+          - apiGroups:
+              - services.k8s.aws
+            resources:
+              - adoptedresources/status
+              - fieldexports/status
+            verbs:
+              - get
+              - patch
+              - update
+    - id: clusterrole---schema-spec-name--ec2-chart-namespaces-cache
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-namespaces-cache
+        rules:
+          - apiGroups:
+              - ""
+            resources:
+              - namespaces
+            verbs:
+              - get
+              - list
+              - watch
+    - id: clusterrolebinding---schema-spec-name--ec2-chart-namespaces-cache
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-namespaces-cache
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: ${schema.spec.name}-ec2-chart-namespaces-cache
+        subjects:
+          - kind: ServiceAccount
+            name: ${schema.spec.values.serviceAccount.name}
+            namespace: ${schema.spec.namespace}
+    - id: clusterrolebinding---schema-spec-name--ec2-chart-rolebinding
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-rolebinding
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: ${schema.spec.name}-ec2-chart
+        subjects:
+          - kind: ServiceAccount
+            name: ${schema.spec.values.serviceAccount.name}
+            namespace: ${schema.spec.namespace}
+    - id: role---schema-spec-name--ec2-chart-configmaps-cache
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-configmaps-cache
+          namespace: ${schema.spec.namespace}
+        rules:
+          - apiGroups:
+              - ""
+            resources:
+              - configmaps
+            verbs:
+              - get
+              - list
+              - watch
+    - id: role---schema-spec-name--ec2-chart-reader
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          creationTimestamp: null
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-reader
+          namespace: ${schema.spec.namespace}
+        rules:
+          - apiGroups:
+              - ec2.services.k8s.aws
+            resources:
+              - capacityreservations
+              - dhcpoptions
+              - elasticipaddresses
+              - flowlogs
+              - instances
+              - internetgateways
+              - launchtemplates
+              - natgateways
+              - networkacls
+              - routetables
+              - securitygroups
+              - subnets
+              - transitgateways
+              - transitgatewayvpcattachments
+              - vpcs
+              - vpcendpoints
+              - vpcendpointserviceconfigurations
+              - vpcpeeringconnections
+            verbs:
+              - get
+              - list
+              - watch
+    - id: role---schema-spec-name--ec2-chart-writer
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: Role
+        metadata:
+          creationTimestamp: null
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-writer
+          namespace: ${schema.spec.namespace}
+        rules:
+          - apiGroups:
+              - ec2.services.k8s.aws
+            resources:
+              - capacityreservations
+              - dhcpoptions
+              - elasticipaddresses
+              - flowlogs
+              - instances
+              - internetgateways
+              - launchtemplates
+              - natgateways
+              - networkacls
+              - routetables
+              - securitygroups
+              - subnets
+              - transitgateways
+              - transitgatewayvpcattachments
+              - vpcs
+              - vpcendpoints
+              - vpcendpointserviceconfigurations
+              - vpcpeeringconnections
+            verbs:
+              - create
+              - delete
+              - get
+              - list
+              - patch
+              - update
+              - watch
+          - apiGroups:
+              - ec2.services.k8s.aws
+            resources:
+              - capacityreservations
+              - dhcpoptions
+              - elasticipaddresses
+              - flowlogs
+              - instances
+              - internetgateways
+              - launchtemplates
+              - natgateways
+              - networkacls
+              - routetables
+              - securitygroups
+              - subnets
+              - transitgateways
+              - transitgatewayvpcattachments
+              - vpcs
+              - vpcendpoints
+              - vpcendpointserviceconfigurations
+              - vpcpeeringconnections
+            verbs:
+              - get
+              - patch
+              - update
+    - id: rolebinding---schema-spec-name--ec2-chart-configmaps-cache
+      template:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart-configmaps-cache
+          namespace: ${schema.spec.namespace}
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: Role
+          name: ${schema.spec.name}-ec2-chart-configmaps-cache
+        subjects:
+          - kind: ServiceAccount
+            name: ${schema.spec.values.serviceAccount.name}
+            namespace: ${schema.spec.namespace}
+    - id: deployment---schema-spec-name--ec2-chart
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          labels:
+            app.kubernetes.io/instance: ${schema.spec.name}
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: ec2-chart
+            app.kubernetes.io/version: 1.7.0
+            helm.sh/chart: ec2-chart-1.7.0
+            k8s-app: ec2-chart
+          name: ${schema.spec.name}-ec2-chart
+          namespace: ${schema.spec.namespace}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/instance: ${schema.spec.name}
+              app.kubernetes.io/name: ec2-chart
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/instance: ${schema.spec.name}
+                app.kubernetes.io/managed-by: Helm
+                app.kubernetes.io/name: ec2-chart
+                k8s-app: ec2-chart
+            spec:
+              containers:
+                - args:
+                    - --aws-region
+                    - $(AWS_REGION)
+                    - --aws-endpoint-url
+                    - $(AWS_ENDPOINT_URL)
+                    - --log-level
+                    - $(ACK_LOG_LEVEL)
+                    - --resource-tags
+                    - $(ACK_RESOURCE_TAGS)
+                    - --watch-namespace
+                    - $(ACK_WATCH_NAMESPACE)
+                    - --watch-selectors
+                    - $(ACK_WATCH_SELECTORS)
+                    - --reconcile-resources
+                    - $(RECONCILE_RESOURCES)
+                    - --deletion-policy
+                    - $(DELETION_POLICY)
+                    - --reconcile-default-resync-seconds
+                    - $(RECONCILE_DEFAULT_RESYNC_SECONDS)
+                    - --reconcile-default-max-concurrent-syncs
+                    - $(RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS)
+                    - --feature-gates
+                    - $(FEATURE_GATES)
+                    - --enable-carm=true
+                  command:
+                    - ./bin/controller
+                  env:
+                    - name: ACK_SYSTEM_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
+                    - name: AWS_REGION
+                      value: ${schema.spec.values.aws.region}
+                    - name: AWS_ENDPOINT_URL
+                      value: ""
+                    - name: ACK_WATCH_NAMESPACE
+                      value: null
+                    - name: ACK_WATCH_SELECTORS
+                      value: null
+                    - name: RECONCILE_RESOURCES
+                      value: CapacityReservation,DHCPOptions,ElasticIPAddress,FlowLog,Instance,InternetGateway,LaunchTemplate,NATGateway,NetworkACL,RouteTable,SecurityGroup,Subnet,TransitGateway,TransitGatewayVPCAttachment,VPC,VPCEndpoint,VPCEndpointServiceConfiguration,VPCPeeringConnection
+                    - name: DELETION_POLICY
+                      value: delete
+                    - name: LEADER_ELECTION_NAMESPACE
+                      value: ""
+                    - name: ACK_LOG_LEVEL
+                      value: info
+                    - name: ACK_RESOURCE_TAGS
+                      value: services.k8s.aws/controller-version=%CONTROLLER_SERVICE%-%CONTROLLER_VERSION%,services.k8s.aws/namespace=%K8S_NAMESPACE%
+                    - name: RECONCILE_DEFAULT_RESYNC_SECONDS
+                      value: "36000"
+                    - name: RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS
+                      value: "1"
+                    - name: FEATURE_GATES
+                      value: ReadOnlyResources=true,ResourceAdoption=true,ServiceLevelCARM=false,TeamLevelCARM=false
+                  image: ${schema.spec.values.image.repository}:${schema.spec.values.image.tag}
+                  imagePullPolicy: IfNotPresent
+                  livenessProbe:
+                    httpGet:
+                      path: /healthz
+                      port: 8081
+                    initialDelaySeconds: 15
+                    periodSeconds: 20
+                  name: controller
+                  ports:
+                    - containerPort: 8080
+                      name: http
+                  readinessProbe:
+                    httpGet:
+                      path: /readyz
+                      port: 8081
+                    initialDelaySeconds: 5
+                    periodSeconds: 10
+                  resources:
+                    limits:
+                      cpu: 100m
+                      memory: 128Mi
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop:
+                        - ALL
+                    privileged: false
+                    readOnlyRootFilesystem: true
+                    runAsNonRoot: true
+              dnsPolicy: ClusterFirst
+              hostIPC: false
+              hostNetwork: false
+              hostPID: false
+              nodeSelector:
+                kubernetes.io/os: linux
+              securityContext:
+                seccompProfile:
+                  type: RuntimeDefault
+              serviceAccountName: ${schema.spec.values.serviceAccount.name}
+              terminationGracePeriodSeconds: 10
