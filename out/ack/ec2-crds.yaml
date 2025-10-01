@@ -10,7 +10,7 @@ spec:
     spec:
       name: ${schema.spec.name}
   resources:
-    - id: customresourcedefinition-adoptedresources-services-k8s-aws
+    - id: graph-adoptedresources
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -255,7 +255,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-capacityreservations-ec2-services-k8s-aws
+    - id: graph-capacityreservations
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -662,7 +662,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-dhcpoptions-ec2-services-k8s-aws
+    - id: graph-dhcpoptions
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -844,7 +844,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-elasticipaddresses-ec2-services-k8s-aws
+    - id: graph-elasticipaddresses
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1014,7 +1014,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-fieldexports-services-k8s-aws
+    - id: graph-fieldexports
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1155,7 +1155,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-flowlogs-ec2-services-k8s-aws
+    - id: graph-flowlogs
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1399,7 +1399,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-instances-ec2-services-k8s-aws
+    - id: graph-instances
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -2288,7 +2288,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-internetgateways-ec2-services-k8s-aws
+    - id: graph-internetgateways
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -2492,7 +2492,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-launchtemplates-ec2-services-k8s-aws
+    - id: graph-launchtemplates
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -3212,7 +3212,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-natgateways-ec2-services-k8s-aws
+    - id: graph-natgateways
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -3505,7 +3505,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-networkacls-ec2-services-k8s-aws
+    - id: graph-networkacls
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -3737,7 +3737,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-routetables-ec2-services-k8s-aws
+    - id: graph-routetables
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4079,7 +4079,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-securitygroups-ec2-services-k8s-aws
+    - id: graph-securitygroups
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4480,7 +4480,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-subnets-ec2-services-k8s-aws
+    - id: graph-subnets
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4783,7 +4783,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-transitgateways-ec2-services-k8s-aws
+    - id: graph-transitgateways
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4959,7 +4959,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-transitgatewayvpcattachments-ec2-services-k8s-aws
+    - id: graph-transitgatewayvpcattachments
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -5200,7 +5200,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-vpcendpoints-ec2-services-k8s-aws
+    - id: graph-vpcendpoints
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -5559,7 +5559,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-vpcendpointserviceconfigurations-ec2-services-k8s-aws
+    - id: graph-vpcendpointserviceconfigurations
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -5774,7 +5774,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-vpcpeeringconnections-ec2-services-k8s-aws
+    - id: graph-vpcpeeringconnections
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -6084,7 +6084,7 @@ spec:
               storage: true
               subresources:
                 status: {}
-    - id: customresourcedefinition-vpcs-ec2-services-k8s-aws
+    - id: graph-vpcs
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition

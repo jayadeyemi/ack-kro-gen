@@ -1,4 +1,4 @@
-module github.com/example/ack-kro-gen
+module github.com/jayadeyemi/ack-kro-gen
 
 go 1.22.0
 

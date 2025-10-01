@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/example/ack-kro-gen/internal/config"
+	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 )
 
 func TestRenderDummyChart(t *testing.T) {

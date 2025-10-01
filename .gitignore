@@ -1,3 +1,4 @@
 .cache/**
 ack-kro-gen
 ack-kro-gen.txt
+**/*.log
