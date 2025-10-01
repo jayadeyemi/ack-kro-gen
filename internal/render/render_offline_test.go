@@ -14,6 +14,9 @@ func TestRenderDummyChart(t *testing.T) {
 		Version:     "0.1.0",
 		ReleaseName: "__KRO_NAME__",
 		Namespace:   "__KRO_NS__",
+		AWS: config.AWSSpec{
+			Region: "__KRO_AWS_REGION__",
+		},
 		Image:       config.ImageSpec{Repository: "__KRO_IMAGE_REPO__", Tag: "__KRO_IMAGE_TAG__"},
 		ServiceAccount: config.SASpec{
 			Name:        "__KRO_SA_NAME__",
@@ -22,9 +25,13 @@ func TestRenderDummyChart(t *testing.T) {
 		Controller: config.ControllerSpec{
 			LogLevel:  "__KRO_LOG_LEVEL__",
 			LogDev:    "__KRO_LOG_DEV__",
-			AWSRegion: "__KRO_AWS_REGION__",
+			WatchNamespace: "__KRO_WATCH_NS__",
 		},
 	})
-	if err != nil { t.Fatal(err) }
-	if len(res.RenderedFiles) == 0 { t.Fatal("no rendered files") }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.RenderedFiles) == 0 {
+		t.Fatal("no rendered files")
+	}
 }

@@ -1,4 +1,4 @@
-package replace
+package placeholders
 
 import (
 	"regexp"

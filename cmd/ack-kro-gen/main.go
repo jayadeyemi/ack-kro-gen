@@ -10,16 +10,17 @@ import (
 	"runtime"
 	"strings"
 	"time"
-  "gopkg.in/yaml.v3"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
-	"github.com/jayadeyemi/ack-kro-gen/internal/util"
 	"github.com/jayadeyemi/ack-kro-gen/internal/helmfetch"
 	"github.com/jayadeyemi/ack-kro-gen/internal/kro"
 	"github.com/jayadeyemi/ack-kro-gen/internal/render"
+	"github.com/jayadeyemi/ack-kro-gen/internal/util"
 )
 
 var (
@@ -81,20 +82,26 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("render %s: %w", gs.Service, err)
 					}
- 					log.Printf("[%s] render: crds=%d files=%d", gs.Service, len(r.CRDs), len(r.RenderedFiles))
+					log.Printf("[%s] render: crds=%d files=%d", gs.Service, len(r.CRDs), len(r.RenderedFiles))
 
 					// Quick preview of first few manifest doc kinds for visibility
 					firstKinds := []string{}
 					maxPreview := 5
 					for _, body := range r.RenderedFiles {
 						for _, doc := range util.SplitYAML(body) {
-							if len(firstKinds) >= maxPreview { break }
-							var k struct{ Kind string `yaml:"kind"` }
+							if len(firstKinds) >= maxPreview {
+								break
+							}
+							var k struct {
+								Kind string `yaml:"kind"`
+							}
 							if err := yaml.Unmarshal([]byte(doc), &k); err == nil && k.Kind != "" {
 								firstKinds = append(firstKinds, k.Kind)
 							}
 						}
-						if len(firstKinds) >= maxPreview { break }
+						if len(firstKinds) >= maxPreview {
+							break
+						}
 					}
 					log.Printf("[%s] render: preview kinds=%v", gs.Service, firstKinds)
 
@@ -107,14 +114,18 @@ func main() {
 					for _, f := range wrote {
 						fi, _ := os.Stat(f)
 						size := int64(-1)
-						if fi != nil { size = fi.Size() }
+						if fi != nil {
+							size = fi.Size()
+						}
 						log.Printf("[%s] emit: wrote %s bytes=%d", gs.Service, f, size)
 					}
 					log.Printf("[%s] done", gs.Service)
 					return nil
 				})
 			}
-			if err := g.Wait(); err != nil { return err }
+			if err := g.Wait(); err != nil {
+				return err
+			}
 			log.Printf("complete in %s", time.Since(start).Round(time.Millisecond))
 			return nil
 		},
@@ -127,26 +138,6 @@ func main() {
 	root.Flags().IntVar(&flagConcurrency, "concurrency", max(2, runtime.NumCPU()), "parallel services")
 	root.Flags().StringVar(&flagLogLevel, "log-level", "info", "log level: info|debug")
 
-	graphs, err := config.LoadGraphs(flagGraphs)
-	if err != nil { return fmt.Errorf("load graphs: %w", err) }
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	// Pre-fetch charts if not offline
-	if !flagOffline {
-		if err := helmfetch.EnsureChart(ctx, flagCache, graphs); err != nil {
-			return fmt.Errorf("ensure charts: %w", err)
-		}
-	}
-
-	out := strings.TrimSpace(flagOut)
-	if out == "" { return errors.New("--out required") }
-
-	if err := kro.Generate(ctx, graphs, out, flagCache, flagOffline, flagConcurrency, flagLogLevel); err != nil {
-		return fmt.Errorf("generate: %w", err)
-	}
-
 	if err := root.Execute(); err != nil {
 		if !strings.HasSuffix(err.Error(), "help requested") {
 			log.Fatal(err)
@@ -154,4 +145,9 @@ func main() {
 	}
 }
 
-func max(a, b int) int { if a > b { return a }; return b }
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}

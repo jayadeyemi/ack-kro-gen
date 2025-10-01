@@ -42,7 +42,7 @@ type AWSSpec struct {
 	Profile     string `yaml:"profile"`
 }
 type ControllerSpec struct {
-	LogLevel  		 string `yaml:"logLevel"`
+	LogLevel       string `yaml:"logLevel"`
 	LogDev         string `yaml:"logDev"`
 	WatchNamespace string `yaml:"watchNamespace"`
 }
@@ -53,13 +53,36 @@ type ExtrasSpec struct {
 
 func Load(path string) (*Root, error) {
 	b, err := os.ReadFile(path)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var r Root
-	if err := yaml.Unmarshal(b, &r); err != nil { return nil, err }
-	if len(r.Graphs) == 0 { return nil, errors.New("graphs: at least one service is required") }
-	for i, g := range r.Graphs {
-		if g.Service == "" || g.Image.Tag == "" { return nil, fmt.Errorf("graphs[%d]: service and image tag are required", i) }
-		if g.ReleaseName == "" || g.Namespace == "" { return nil, fmt.Errorf("graphs[%d]: releaseName and namespace are required", i) }
+	if err := yaml.Unmarshal(b, &r); err != nil {
+		return nil, err
+	}
+	for i := range r.Graphs {
+		applyGraphDefaults(&r.Graphs[i])
+	}
+	if len(r.Graphs) == 0 {
+		return nil, errors.New("graphs: at least one service is required")
+	}
+	for i := range r.Graphs {
+		g := &r.Graphs[i]
+		if g.Service == "" {
+			return nil, fmt.Errorf("graphs[%d]: service is required", i)
+		}
+		if g.Version == "" {
+			return nil, fmt.Errorf("graphs[%d]: version is required", i)
+		}
+		if g.Image.Tag == "" {
+			return nil, fmt.Errorf("graphs[%d]: image tag is required", i)
+		}
+		if g.ReleaseName == "" {
+			return nil, fmt.Errorf("graphs[%d]: releaseName is required", i)
+		}
+		if g.Namespace == "" {
+			return nil, fmt.Errorf("graphs[%d]: namespace is required", i)
+		}
 	}
 	return &r, nil
 }

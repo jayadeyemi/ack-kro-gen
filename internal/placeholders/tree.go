@@ -1,4 +1,4 @@
-package replace
+package placeholders
 
 // Defaults is a typed view if you need programmatic access elsewhere.
 // The replacement engine still uses SchemaDefaults map.

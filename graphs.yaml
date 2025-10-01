@@ -1,70 +1,12 @@
+# Graph definitions now rely on config defaults for placeholder values.
+# Only service and version are required here.
+
 graphs:
   - service: s3
     version: "1.1.1"
-    releaseName: "__KRO_NAME__"
-    namespace: "__KRO_NS__"
-    aws:
-      region: "__KRO_AWS_REGION__"
-      accountID: "__KRO_AWS_ACCOUNT_ID__"
-      credentials: "__KRO_AWS_CREDENTIALS__"
-      secretName: "__KRO_AWS_SECRET_NAME__"
-      profile: "__KRO_AWS_PROFILE__"
-    image:
-      repository: "__KRO_IMAGE_REPO__"
-      tag: "__KRO_IMAGE_TAG__"
-    serviceAccount:
-      name: "__KRO_SA_NAME__"
-      annotations:
-        eks.amazonaws.com/role-arn: "__KRO_IRSA_ARN__"
-    controller:
-      logLevel: "__KRO_LOG_LEVEL__"
-      logDev: "__KRO_LOG_DEV__"
-      watchNamespace: "__KRO_WATCH_NS__"
-    extras:
-      values: {}
 
   - service: ec2
     version: "1.7.0"
-    releaseName: "__KRO_NAME__"
-    namespace: "__KRO_NS__"
-    aws:
-      region: "__KRO_AWS_REGION__"
-      accountID: "__KRO_AWS_ACCOUNT_ID__"
-      credentials: "__KRO_AWS_CREDENTIALS__"
-      secretName: "__KRO_AWS_SECRET_NAME__"
-      profile: "__KRO_AWS_PROFILE__"
-    image:
-      repository: "__KRO_IMAGE_REPO__"
-      tag: "__KRO_IMAGE_TAG__"
-    serviceAccount:
-      name: "__KRO_SA_NAME__"
-      annotations:
-        eks.amazonaws.com/role-arn: "__KRO_IRSA_ARN__"
-    controller:
-      logLevel: "__KRO_LOG_LEVEL__"
-      logDev: "__KRO_LOG_DEV__"
-    extras:
-      values: {}
 
   - service: rds
     version: "1.6.2"
-    releaseName: "__KRO_NAME__"
-    namespace: "__KRO_NS__"
-    aws:
-      region: "__KRO_AWS_REGION__"
-      accountID: "__KRO_AWS_ACCOUNT_ID__"
-      credentials: "__KRO_AWS_CREDENTIALS__"
-      secretName: "__KRO_AWS_SECRET_NAME__"
-      profile: "__KRO_AWS_PROFILE__"
-    image:
-      repository: "__KRO_IMAGE_REPO__"
-      tag: "__KRO_IMAGE_TAG__"
-    serviceAccount:
-      name: "__KRO_SA_NAME__"
-      annotations:
-        eks.amazonaws.com/role-arn: "__KRO_IRSA_ARN__"
-    controller:
-      logLevel: "__KRO_LOG_LEVEL__"
-      logDev: "__KRO_LOG_DEV__"
-    extras:
-      values: {}
