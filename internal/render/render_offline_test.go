@@ -13,19 +13,19 @@ func TestRenderDummyChart(t *testing.T) {
 		Service:     "dummy",
 		Version:     "0.1.0",
 		ReleaseName: "__KRO_NAME__",
-		Namespace:   "__KRO_NS__",
+		Namespace:   "__KRO_NAMESPACE__",
 		AWS: config.AWSSpec{
 			Region: "__KRO_AWS_REGION__",
 		},
-		Image:       config.ImageSpec{Repository: "__KRO_IMAGE_REPO__", Tag: "__KRO_IMAGE_TAG__"},
+		Image: config.ImageSpec{Repository: "__KRO_IMAGE_REPOSITORY__", Tag: "__KRO_IMAGE_TAG__"},
 		ServiceAccount: config.SASpec{
 			Name:        "__KRO_SA_NAME__",
 			Annotations: map[string]string{"eks.amazonaws.com/role-arn": "__KRO_IRSA_ARN__"},
 		},
 		Controller: config.ControllerSpec{
-			LogLevel:  "__KRO_LOG_LEVEL__",
-			LogDev:    "__KRO_LOG_DEV__",
-			WatchNamespace: "__KRO_WATCH_NS__",
+			LogLevel:       "__KRO_LOG_LEVEL__",
+			LogDev:         "__KRO_LOG_DEV__",
+			WatchNamespace: "__KRO_WATCH_NAMESPACE__",
 		},
 	})
 	if err != nil {

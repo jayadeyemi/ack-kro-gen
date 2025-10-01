@@ -4,19 +4,19 @@ import "strings"
 
 const (
 	placeholderReleaseName    = "_NAME_"
-	placeholderNamespace      = "_NS_"
+	placeholderNamespace      = "_NAMESPACE_"
 	placeholderAWSRegion      = "_AWS_REGION_"
 	placeholderAWSAccountID   = "_AWS_ACCOUNT_ID_"
-	placeholderAWSCredentials = "_AWS_CREDENTIALS_"
+	placeholderAWSCredentials = "_AWS_SECRET_KEY_"
 	placeholderAWSSecretName  = "_AWS_SECRET_NAME_"
 	placeholderAWSProfile     = "_AWS_PROFILE_"
-	placeholderImageRepo      = "_IMAGE_REPO_"
+	placeholderImageRepo      = "_IMAGE_REPOSITORY_"
 	placeholderImageTag       = "_IMAGE_TAG_"
 	placeholderSAName         = "_SA_NAME_"
 	placeholderIRSAArn        = "_IRSA_ARN_"
 	placeholderLogLevel       = "_LOG_LEVEL_"
 	placeholderLogDev         = "_LOG_DEV_"
-	placeholderWatchNamespace = "_WATCH_NS_"
+	placeholderWatchNamespace = "_WATCH_NAMESPACE_"
 
 	irsaAnnotationKey = "eks.amazonaws.com/role-arn"
 )

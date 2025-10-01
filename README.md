@@ -57,9 +57,9 @@ graphs:
   - service: s3
     version: "1.2.27"
     releaseName: "__KRO_NAME__"
-    namespace: "__KRO_NS__"
+    namespace: "__KRO_NAMESPACE__"
     image:
-      repository: "__KRO_IMAGE_REPO__"
+      repository: "__KRO_IMAGE_REPOSITORY__"
       tag: "__KRO_IMAGE_TAG__"
     serviceAccount:
       name: "__KRO_SA_NAME__"
