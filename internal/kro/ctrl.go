@@ -6,6 +6,7 @@ import (
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/classify"
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
+	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,7 +36,6 @@ func controllerIDForKind(kind string) string {
 
 // MakeCtrlRGD assembles the controller RGD for a service.
 func MakeCtrlRGD(gs config.GraphSpec, serviceUpper string, ctrlResources []Resource) RGD {
-
 	// Add a graph-crd item as the first resource in the controller graph.
 	ctrlResources = append([]Resource{makeGraphCRDItem(gs.Service, serviceUpper)}, ctrlResources...)
 
@@ -54,93 +54,9 @@ func MakeCtrlRGD(gs config.GraphSpec, serviceUpper string, ctrlResources []Resou
 	}
 }
 
-// TODO: update this block and the placeholders package. all fields must be referenced from there.
-// define the controller schema
+// CtrlSchema assembles the schema for controller graphs using shared placeholders.
 func CtrlSchema(gs config.GraphSpec, serviceUpper string) Schema {
-	values := map[string]any{
-		"aws": map[string]any{
-			"accountID": defStr(gs.AWS.AccountID, ""),
-			"region":    defStr(gs.AWS.Region, ""),
-			"credentials": map[string]any{
-				"secretName": defStr(gs.AWS.SecretName, ""),
-				"secretKey":  defStr(gs.AWS.Credentials, "credentials"),
-				"profile":    defStr(gs.AWS.Profile, "default"),
-			},
-		},
-		"deletionPolicy": defStr("", "delete"),
-		"deployment": map[string]any{
-			"replicas":          "integer | default=1",
-			"containerPort":     "integer | default=8080",
-			"labels":            "object | default={}",
-			"annotations":       "object | default={}",
-			"nodeSelector":      "object | default={}",
-			"tolerations":       "object | default={}",
-			"affinity":          "object | default={}",
-			"priorityClassName": defStr("", ""),
-			"hostNetwork":       boolDefault("", false),
-			"dnsPolicy":         defStr("", "ClusterFirst"),
-			"strategy":          "object | default={}",
-			"extraVolumes":      "object | default={}",
-			"extraVolumeMounts": "object | default={}",
-			"extraEnvVars":      "object | default={}",
-		},
-		"resources": map[string]any{
-			"requests": map[string]any{
-				"memory": defStr("", "64Mi"),
-				"cpu":    defStr("", "50m"),
-			},
-			"limits": map[string]any{
-				"memory": defStr("", "128Mi"),
-				"cpu":    defStr("", "100m"),
-			},
-		},
-		"role": map[string]any{
-			"labels": "object | default={}",
-		},
-		"metrics": map[string]any{
-			"service": map[string]any{
-				"create": boolDefault("", true),
-				"type":   defStr("", "ClusterIP"),
-			},
-		},
-		"log": map[string]any{
-			"enable_development_logging": boolDefault(gs.Controller.LogDev, false),
-			"level":                      defStr(gs.Controller.LogLevel, "info"),
-		},
-		"installScope":   defStr("", "cluster"),
-		"watchNamespace": defStr(gs.Controller.WatchNamespace, ""),
-		"watchSelectors": defStr("", ""),
-		"resourceTags":   "string[] | default=[]",
-		"reconcile": map[string]any{
-			"defaultResyncPeriod":        defStr("", "10h"),
-			"defaultMaxConcurrentSyncs":  "integer | default=5",
-			"resourceResyncPeriods":      "object | default={}",
-			"resourceMaxConcurrentSyncs": "object | default={}",
-			"resources":                  "string[] | default=[]",
-		},
-		"enableCARM":   boolDefault("", true),
-		"featureGates": "object | default={}",
-		"serviceAccount": map[string]any{
-			"create":      boolDefault("", true),
-			"name":        defStr(gs.ServiceAccount.Name, fmt.Sprintf("ack-%s-controller", gs.Service)),
-			"annotations": mapOrDefault(gs.ServiceAccount.Annotations),
-		},
-		"leaderElection": map[string]any{
-			"enabled":   boolDefault("", false),
-			"namespace": defStr(gs.Namespace, "kro"),
-		},
-		"iamRole": map[string]any{
-			"oidcProvider":       defStr("", ""),
-			"maxSessionDuration": "integer | default=3600",
-			"roleDescription":    defStr("", fmt.Sprintf("IRSA role for ACK %s controller deployment on EKS cluster using KRO Resource Graph", strings.ToLower(gs.Service))),
-		},
-		"image": map[string]any{
-			"repository":  defStr(gs.Image.Repository, defaultRepo(gs.Service)),
-			"tag":         defStr(gs.Image.Tag, defaultTag()),
-			"pullPolicy":  defStr("", "IfNotPresent"),
-			"pullSecrets": "string[] | default=[]",
-		},
-	}
+	values := placeholders.ControllerValues(gs, serviceUpper)
 
 	if len(gs.Extras.Values) > 0 {
 		values["overrides"] = gs.Extras.Values
@@ -150,8 +66,8 @@ func CtrlSchema(gs config.GraphSpec, serviceUpper string) Schema {
 		APIVersion: "v1alpha1",
 		Kind:       serviceUpper + "controller",
 		Spec: SchemaSpec{
-			Name:      defStr(gs.ReleaseName, fmt.Sprintf("ack-%s-controller", gs.Service)),
-			Namespace: defStr(gs.Namespace, "ack-system"),
+			Name:      placeholders.StringDefault(gs.ReleaseName, fmt.Sprintf("ack-%s-controller", gs.Service)),
+			Namespace: placeholders.StringDefault(gs.Namespace, "ack-system"),
 			Values:    values,
 		},
 	}
@@ -172,48 +88,4 @@ func makeGraphCRDItem(service string, serviceUpper string) Resource {
 			},
 		},
 	}
-}
-
-// defStr returns `string | default=<v>` with "" when empty.
-// fb is a fallback used if v is empty; if both empty -> "".
-func defStr(v, fb string) string {
-	s := strings.TrimSpace(v)
-	if s == "" {
-		s = strings.TrimSpace(fb)
-	}
-	if s == "" {
-		return `string | default=""`
-	}
-	return "string | default=" + s
-}
-
-// service repo/tag fallbacks
-func defaultRepo(service string) string {
-	if service == "" {
-		return ""
-	}
-	return "public.ecr.aws/aws-controllers-k8s/" + strings.ToLower(service) + "-controller"
-}
-func defaultTag() string { return "latest" }
-
-func boolDefault(v string, fb bool) string {
-	s := strings.TrimSpace(strings.ToLower(v))
-	if s == "true" || s == "false" {
-		return "boolean | default=" + s
-	}
-	if fb {
-		return "boolean | default=true"
-	}
-	return "boolean | default=false"
-}
-
-func mapOrDefault(in map[string]string) any {
-	if len(in) == 0 {
-		return "object | default={}"
-	}
-	out := make(map[string]any, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
 }

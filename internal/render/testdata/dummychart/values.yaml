@@ -1,5 +1,5 @@
 image:
-  repository: "__KRO_IMAGE_REPO__"
+  repository: "__KRO_IMAGE_REPOSITORY__"
   tag: "__KRO_IMAGE_TAG__"
 serviceAccount:
   name: "__KRO_SA_NAME__"

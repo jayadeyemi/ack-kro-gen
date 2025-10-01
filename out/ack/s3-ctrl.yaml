@@ -9,13 +9,13 @@ spec:
     kind: S3controller
     spec:
       name: string | default=${schema.spec.name}
-      namespace: string | default=_NS_
+      namespace: string | default=${schema.spec.namespace}
       values:
         aws:
           accountID: string | default=${schema.spec.aws.accountID}
           credentials:
             profile: string | default=${schema.spec.aws.credentials.profile}
-            secretKey: string | default=_AWS_CREDENTIALS_
+            secretKey: string | default=${schema.spec.aws.credentials.secretKey}
             secretName: string | default=${schema.spec.aws.credentials.secretName}
           region: string | default=${schema.spec.aws.region}
         deletionPolicy: string | default=delete
@@ -29,13 +29,13 @@ spec:
           extraVolumes: object | default={}
           hostNetwork: boolean | default=false
           labels: object | default={}
-          nodeSelector: object | default={}
+          nodeSelector: object | default={"kubernetes.io/os":"linux"}
           priorityClassName: string | default=""
           replicas: integer | default=1
           strategy: object | default={}
           tolerations: object | default={}
         enableCARM: boolean | default=true
-        featureGates: object | default={}
+        featureGates: object | default={"ServiceLevelCARM":false,"TeamLevelCARM":false,"ReadOnlyResources":true,"ResourceAdoption":true}
         iamRole:
           maxSessionDuration: integer | default=3600
           oidcProvider: string | default=""
@@ -43,12 +43,12 @@ spec:
         image:
           pullPolicy: string | default=IfNotPresent
           pullSecrets: string[] | default=[]
-          repository: string | default=_IMAGE_REPO_
+          repository: string | default=${schema.spec.image.repository}
           tag: string | default=${schema.spec.image.tag}
         installScope: string | default=cluster
         leaderElection:
           enabled: boolean | default=false
-          namespace: string | default=_NS_
+          namespace: string | default=${schema.spec.namespace}
         log:
           enable_development_logging: boolean | default=false
           level: string | default=${schema.spec.log.level}
@@ -62,7 +62,7 @@ spec:
           resourceMaxConcurrentSyncs: object | default={}
           resourceResyncPeriods: object | default={}
           resources: string[] | default=[]
-        resourceTags: string[] | default=[]
+        resourceTags: string[] | default=["services.k8s.aws/controller-version=${schema.spec.name}-${schema.spec.image.tag}","services.k8s.aws/namespace=${schema.spec.namespace}"]
         resources:
           limits:
             cpu: string | default=100m
@@ -74,10 +74,10 @@ spec:
           labels: object | default={}
         serviceAccount:
           annotations:
-            eks.amazonaws.com/role-arn: _IRSA_ARN_
+            eks.amazonaws.com/role-arn: ${schema.spec.serviceAccount.annotations["eks.amazonaws.com/role-arn"]}
           create: boolean | default=true
           name: string | default=${schema.spec.serviceAccount.name}
-        watchNamespace: string | default=_WATCH_NS_
+        watchNamespace: string | default=${schema.spec.watchNamespace}
         watchSelectors: string | default=""
   resources:
     - id: graph-s3-crds
@@ -94,7 +94,7 @@ spec:
         kind: ServiceAccount
         metadata:
           annotations:
-            eks.amazonaws.com/role-arn: _IRSA_ARN_
+            eks.amazonaws.com/role-arn: ${schema.spec.serviceAccount.annotations["eks.amazonaws.com/role-arn"]}
           labels:
             app.kubernetes.io/instance: __KRO${schema.spec.name}_
             app.kubernetes.io/managed-by: Helm
@@ -103,7 +103,7 @@ spec:
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: ${schema.spec.serviceAccount.name}
-          namespace: __KRO_NS__
+          namespace: __KRO${schema.spec.namespace}_
     - id: graph-clusterrole
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -220,7 +220,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: __KRO_NS__
+            namespace: __KRO${schema.spec.namespace}_
     - id: graph-clusterrolebinding-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -241,7 +241,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: __KRO_NS__
+            namespace: __KRO${schema.spec.namespace}_
     - id: graph-role
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -255,7 +255,7 @@ spec:
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: __KRO${schema.spec.name}_-s3-chart-configmaps-cache
-          namespace: __KRO_NS__
+          namespace: __KRO${schema.spec.namespace}_
         rules:
           - apiGroups:
               - ""
@@ -279,7 +279,7 @@ spec:
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: __KRO${schema.spec.name}_-s3-chart-reader
-          namespace: __KRO_NS__
+          namespace: __KRO${schema.spec.namespace}_
         rules:
           - apiGroups:
               - s3.services.k8s.aws
@@ -303,7 +303,7 @@ spec:
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: __KRO${schema.spec.name}_-s3-chart-writer
-          namespace: __KRO_NS__
+          namespace: __KRO${schema.spec.namespace}_
         rules:
           - apiGroups:
               - s3.services.k8s.aws
@@ -338,7 +338,7 @@ spec:
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: __KRO${schema.spec.name}_-s3-chart-configmaps-cache
-          namespace: __KRO_NS__
+          namespace: __KRO${schema.spec.namespace}_
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: Role
@@ -346,7 +346,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: __KRO_NS__
+            namespace: __KRO${schema.spec.namespace}_
     - id: graph-deployment
       template:
         apiVersion: apps/v1
@@ -360,7 +360,7 @@ spec:
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: __KRO${schema.spec.name}_-s3-chart
-          namespace: __KRO_NS__
+          namespace: __KRO${schema.spec.namespace}_
         spec:
           replicas: 1
           selector:
@@ -431,7 +431,7 @@ spec:
                       value: "1"
                     - name: FEATURE_GATES
                       value: ReadOnlyResources=true,ResourceAdoption=true,ServiceLevelCARM=false,TeamLevelCARM=false
-                  image: _IMAGE_REPO_:${schema.spec.image.tag}
+                  image: ${schema.spec.image.repository}:${schema.spec.image.tag}
                   imagePullPolicy: IfNotPresent
                   livenessProbe:
                     httpGet:

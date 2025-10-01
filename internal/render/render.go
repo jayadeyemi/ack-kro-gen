@@ -13,6 +13,7 @@ package render
 import (
 	"context"
 	"fmt"
+
 	// "maps" // optional in newer Go for map utilities
 	"path/filepath"
 	"sort"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 	"github.com/jayadeyemi/ack-kro-gen/internal/util"
+
 	// "gopkg.in/yaml.v3" // not needed here
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -49,8 +51,8 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 
 	// Emulate a Helm release for templating. These can be used by templates as .Release.*.
 	rel := chartutil.ReleaseOptions{
-		Name:      "__KRO_NAME__", // placeholder; not persisted to outputs
-		Namespace: "__KRO_NS__",   // placeholder; not persisted to outputs
+		Name:      "__KRO_NAME__",      // placeholder; not persisted to outputs
+		Namespace: "__KRO_NAMESPACE__", // placeholder; not persisted to outputs
 		IsInstall: true,
 		Revision:  1,
 	}
@@ -109,9 +111,10 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 
 // buildValues constructs the Helm values map from GraphSpec, then merges in optional overrides.
 // Precedence (highest to lower within Extras.Values):
-//   1) <service>-chart (e.g., "s3-chart")
-//   2) "ack-chart" (shared defaults across ACK controllers)
-//   3) any other top-level keys, merged into the base under their own key
+//  1. <service>-chart (e.g., "s3-chart")
+//  2. "ack-chart" (shared defaults across ACK controllers)
+//  3. any other top-level keys, merged into the base under their own key
+//
 // Base seeds image, serviceAccount, log flags, and AWS region.
 func buildValues(gs config.GraphSpec) map[string]any {
 	// Base values seeded from GraphSpec.
@@ -122,7 +125,7 @@ func buildValues(gs config.GraphSpec) map[string]any {
 		},
 		"serviceAccount": map[string]any{
 			"name":        gs.ServiceAccount.Name, // string name
-			"annotations": map[string]any{},      // coerced to map[string]any below if needed
+			"annotations": map[string]any{},       // coerced to map[string]any below if needed
 		},
 		"logLevel": gs.Controller.LogLevel,
 		"logDev":   gs.Controller.LogDev,
