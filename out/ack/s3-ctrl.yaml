@@ -8,34 +8,62 @@ spec:
     apiVersion: v1alpha1
     kind: S3controller
     spec:
-      name: ${schema.spec.name}
-      namespace: ${schema.spec.namespace}
+      name: string | default=${schema.spec.name}
+      namespace: string | default=${schema.spec.namespace}
       values:
         aws:
-          accountID: ${schema.spec.values.aws.accountID}
-          region: ${schema.spec.values.aws.region}
+          accountID: string | required=true
+          credentials:
+            profile: string | default=${schema.spec.aws.profile}
+            secretName: string | default=${schema.spec.aws.secretName}
+          region: string | default=${schema.spec.aws.region}
+        deletionPolicy: string | default=delete
         deployment:
-          containerPort: 8080
-          replicas: 1
+          containerPort: integer | default=8080
+          extraEnv: object | default={}
+          extraVolumeMounts: object | default={}
+          extraVolumes: object | default={}
+          labels: object | default={}
+          replicas: integer | default=1
+          strategy: object | default={}
+        featureGates: string[] | default=[]
         iamRole:
-          maxSessionDuration: 3600
-          oidcProvider: ${schema.spec.values.iamRole.oidcProvider}
+          maxSessionDuration: integer | default=3600
+          oidcProvider: string | required=true
+          roleDescription: string | default=IRSA role for ACK s3 controller deployement on EKS cluster using kro Resource graph
         image:
-          deletePolicy: ${schema.spec.values.image.deletePolicy}
-          repository: ${schema.spec.values.image.repository}
+          deletePolicy: string | default=delete
+          repository: string | default=${schema.spec.image.repository}
           resources:
             limits:
-              cpu: 100m
-              memory: 128Mi
+              cpu: string | default=100m
+              memory: string | default=128Mi
             requests:
-              cpu: 50m
-              memory: 64Mi
-          tag: ${schema.spec.values.image.tag}
+              cpu: string | default=50m
+              memory: string | default=64Mi
+          tag: string | default=${schema.spec.image.tag}
+        installScope: string | default=cluster
+        leaderElection:
+          enabled: boolean | default=true
+          namespace: string | default=${schema.spec.namespace}
         log:
-          enabled: ${schema.spec.values.log.enabled}
-          level: ${schema.spec.values.log.level}
+          enabled: boolean | default=false
+          level: string | default=${schema.spec.log.level}
+        metrics:
+          service:
+            create: boolean | default=true
+            type: string | default=ClusterIP
+        reconcile:
+          defaultMaxConcurrentSyncs: integer | default=5
+          defaultResyncPeriod: string | default=10h
+          resourceMaxConcurrentSyncs: object | default={}
+          resourceResyncPeriods: object | default={}
+        resourceTags: string[] | default=[]
         serviceAccount:
-          name: ${schema.spec.values.serviceAccount.name}
+          annotations: object | default={}
+          create: boolean | default=true
+          name: string | default=${schema.spec.serviceAccount.name}
+        watchNamespace: string | default=__KRO_WATCH_NS__
   resources:
     - id: graph-s3-crds
       template:
@@ -59,7 +87,7 @@ spec:
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: ${schema.spec.values.serviceAccount.name}
+          name: ${schema.spec.serviceAccount.name}
           namespace: ${schema.spec.namespace}
     - id: graph-clusterrole
       template:
@@ -176,7 +204,7 @@ spec:
           name: ${schema.spec.name}-s3-chart-namespaces-cache
         subjects:
           - kind: ServiceAccount
-            name: ${schema.spec.values.serviceAccount.name}
+            name: ${schema.spec.serviceAccount.name}
             namespace: ${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
       template:
@@ -197,7 +225,7 @@ spec:
           name: ${schema.spec.name}-s3-chart
         subjects:
           - kind: ServiceAccount
-            name: ${schema.spec.values.serviceAccount.name}
+            name: ${schema.spec.serviceAccount.name}
             namespace: ${schema.spec.namespace}
     - id: graph-role
       template:
@@ -302,7 +330,7 @@ spec:
           name: ${schema.spec.name}-s3-chart-configmaps-cache
         subjects:
           - kind: ServiceAccount
-            name: ${schema.spec.values.serviceAccount.name}
+            name: ${schema.spec.serviceAccount.name}
             namespace: ${schema.spec.namespace}
     - id: graph-deployment
       template:
@@ -365,7 +393,7 @@ spec:
                         fieldRef:
                           fieldPath: metadata.namespace
                     - name: AWS_REGION
-                      value: ${schema.spec.values.aws.region}
+                      value: ${schema.spec.aws.region}
                     - name: AWS_ENDPOINT_URL
                       value: ""
                     - name: ACK_WATCH_NAMESPACE
@@ -388,7 +416,7 @@ spec:
                       value: "1"
                     - name: FEATURE_GATES
                       value: ReadOnlyResources=true,ResourceAdoption=true,ServiceLevelCARM=false,TeamLevelCARM=false
-                  image: ${schema.spec.values.image.repository}:${schema.spec.values.image.tag}
+                  image: ${schema.spec.image.repository}:${schema.spec.image.tag}
                   imagePullPolicy: IfNotPresent
                   livenessProbe:
                     httpGet:
@@ -430,5 +458,5 @@ spec:
               securityContext:
                 seccompProfile:
                   type: RuntimeDefault
-              serviceAccountName: ${schema.spec.values.serviceAccount.name}
+              serviceAccountName: ${schema.spec.serviceAccount.name}
               terminationGracePeriodSeconds: 10

@@ -127,6 +127,26 @@ func main() {
 	root.Flags().IntVar(&flagConcurrency, "concurrency", max(2, runtime.NumCPU()), "parallel services")
 	root.Flags().StringVar(&flagLogLevel, "log-level", "info", "log level: info|debug")
 
+	graphs, err := config.LoadGraphs(flagGraphs)
+	if err != nil { return fmt.Errorf("load graphs: %w", err) }
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Pre-fetch charts if not offline
+	if !flagOffline {
+		if err := helmfetch.EnsureChart(ctx, flagCache, graphs); err != nil {
+			return fmt.Errorf("ensure charts: %w", err)
+		}
+	}
+
+	out := strings.TrimSpace(flagOut)
+	if out == "" { return errors.New("--out required") }
+
+	if err := kro.Generate(ctx, graphs, out, flagCache, flagOffline, flagConcurrency, flagLogLevel); err != nil {
+		return fmt.Errorf("generate: %w", err)
+	}
+
 	if err := root.Execute(); err != nil {
 		if !strings.HasSuffix(err.Error(), "help requested") {
 			log.Fatal(err)

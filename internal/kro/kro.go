@@ -58,11 +58,8 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 
 	var objs []classify.Obj
 	for _, crd := range r.CRDs {
-		crd2, err := placeholders.ReplaceYAMLScalars(crd)
-		if err != nil {
-			return nil, fmt.Errorf("placeholder on CRD: %w", err)
-		}
-		o, err := classify.Parse(crd2)
+
+		o, err := classify.Parse(crd)
 		if err != nil {
 			return nil, fmt.Errorf("parse CRD: %w", err)
 		}
@@ -73,11 +70,8 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 			if strings.TrimSpace(doc) == "" {
 				continue
 			}
-			repl, err := placeholders.ReplaceYAMLScalars(doc)
-			if err != nil {
-				return nil, fmt.Errorf("placeholder replace: %w", err)
-			}
-			o, err := classify.Parse(repl)
+
+			o, err := classify.Parse(doc)
 			if err != nil {
 				return nil, fmt.Errorf("parse manifest: %w", err)
 			}
@@ -100,7 +94,7 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 	// Build per-domain RGDs.
 	crdsRGD := MakeCRDsRGD(gs, serviceUpper, crdResources)
 	ctrlRGD := MakeCtrlRGD(gs, serviceUpper, ctrlResources)
-
+  
 	// Write files.
 	outAckDir := filepath.Join(absOutDir, "ack")
 	if err := os.MkdirAll(outAckDir, 0o755); err != nil {
@@ -115,6 +109,11 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 			return nil, errors.New("refusing to write outside the output directory")
 		}
 	}
+// Before writing YAML resources:
+rendered := replace.ReplaceAll(templateText, false) // substitute sentinels -> ${schema...}
+
+// When generating schema defaults/example:
+defaultsDoc := replace.ReplaceAll(schemaTemplateText, true) // also substitutes defaults
 
 	if err := writeYAML(crdsPath, crdsRGD); err != nil {
 		return nil, err
@@ -130,7 +129,13 @@ func writeYAML(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o644)
+		// run legacy scalar replacer now
+	out, err := placeholders.ReplaceYAMLScalars(string(b))
+	if err != nil {
+		return fmt.Errorf("placeholder replace: %w", err)
+	}
+
+	return os.WriteFile(path, []byte(out), 0o644)
 }
 
 func marshalYAML(v any) ([]byte, error) {
@@ -157,325 +162,44 @@ func makeID(s string) string {
 	return s
 }
 
+// Generate renders all controllers and CRDs per graph spec.
+func Generate(ctx context.Context, graphs config.GraphSpec, outDir, cacheDir string, offline bool, concurrency int, logLevel string) error {
+    // 1) Render charts
+    resEC2, err := render.RenderChart(ctx, cacheDir, offline, graphs.EC2)   // example selector
+    if err != nil { return fmt.Errorf("render ec2: %w", err) }
+    // ... render others per graphs ...
 
+    // 2) Split YAML -> classify
+    var objs []classify.Obj
+    for _, s := range resEC2.RenderedFiles {
+        for _, doc := range render.SplitYAML(s) {
+            if strings.TrimSpace(doc) == "" { continue }
+            o, err := classify.Parse(doc)
+            if err != nil { return fmt.Errorf("parse manifest: %w", err) }
+            objs = append(objs, o)
+        }
+    }
+    groups := classify.Classify(objs)
 
+    // 3) Build resources
+    crdResources, err := buildCRDResources(groups.CRDs)
+    if err != nil { return err }
+    ctrlResources, err := buildControllerResources(append(append(append(groups.RBAC, groups.Deployments...), groups.Services...), groups.Other...) )
+    if err != nil { return err }
 
-// package kro
+    // 4) Assemble RGD and write
+    rgd := RGD{
+      APIVersion: "kro.run/v1alpha1",
+      Kind: "ResourceGraphDefinition",
+      Metadata: Metadata{Name: graphs.Name, Namespace: graphs.Namespace, Labels: graphs.Labels},
+      Spec: RGDSpec{ Schema: Schema{APIVersion: "v1"}, Resources: append(crdResources, ctrlResources...) },
+    }
+    return writeRGD(outDir, graphs.Name+"-ctrl.yaml", rgd)
+}
 
-// import (
-// 	"errors"
-// 	"fmt"
-// 	"os"
-// 	"path/filepath"
-// 	"regexp"
-// 	"strings"
-
-// 	"github.com/jayadeyemi/ack-kro-gen/internal/classify"
-// 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
-// 	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
-// 	"github.com/jayadeyemi/ack-kro-gen/internal/render"
-// 	"github.com/jayadeyemi/ack-kro-gen/internal/util"
-// 	"gopkg.in/yaml.v3"
-// )
-
-// type RGD struct {
-// 	APIVersion string   `yaml:"apiVersion"`
-// 	Kind       string   `yaml:"kind"`
-// 	Metadata   Metadata `yaml:"metadata"`
-// 	Spec       RGDSpec  `yaml:"spec"`
-// }
-
-// type Metadata struct {
-// 	Name      string            `yaml:"name"`
-// 	Namespace string            `yaml:"namespace"`
-// 	Labels    map[string]string `yaml:"labels,omitempty"`
-// }
-
-// type RGDSpec struct {
-// 	Schema    Schema     `yaml:"schema"`
-// 	Resources []Resource `yaml:"resources"`
-// }
-
-// type Schema struct {
-// 	APIVersion string     `yaml:"apiVersion"`
-// 	Kind       string     `yaml:"kind"`
-// 	Spec       SchemaSpec `yaml:"spec"`
-// }
-
-// type SchemaSpec struct {
-// 	Name      string         `yaml:"name"`
-// 	Namespace string         `yaml:"namespace,omitempty"`
-// 	Values    map[string]any `yaml:"values,omitempty"`
-// }
-
-// type Resource struct {
-// 	ID       string         `yaml:"id"`
-// 	Template map[string]any `yaml:"template"`
-// }
-
-// // EmitRGDs writes two RGDs per service:
-// // - ack/<service>-crds.yaml  (metadata.name = ack-<service>-crds.kro.run)
-// func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, error) {
-// 	// Ensure outDir is absolute for security check later
-// 	absOutDir, _ := filepath.Abs(outDir)
-
-// 	// service name with first letter uppercased
-// 	serviceUpper := strings.ToUpper(gs.Service[:1]) + gs.Service[1:]
-
-// 	// CRD graph item (template only)
-// 	graphCRDItem := Resource{
-// 		ID: "graph-" + gs.Service + "-crds",
-// 		Template: map[string]any{
-// 			"apiVersion": "kro.run/v1alpha1",
-// 			"kind":       serviceUpper + "crdgraph",
-// 			"metadata": map[string]any{
-// 				"name": "${schema.spec.name}-crd-graph",
-// 			},
-// 			"spec": map[string]any{
-// 				"name": "${schema.spec.name}-crd-graph",
-// 			},
-// 		},
-// 	}
-
-// 	// Parse all rendered files and CRDs into classify.Objs
-// 	var objs []classify.Obj
-// 	for _, crd := range r.CRDs {
-// 		crd2, err := placeholders.ReplaceYAMLScalars(crd)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("placeholder on CRD: %w", err)
-// 		}
-// 		o, err := classify.Parse(crd2)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("parse CRD: %w", err)
-// 		}
-// 		objs = append(objs, o)
-// 	}
-// 	for _, body := range r.RenderedFiles {
-// 		for _, doc := range util.SplitYAML(body) {
-// 			if strings.TrimSpace(doc) == "" {
-// 				continue
-// 			}
-// 			repl, err := placeholders.ReplaceYAMLScalars(doc)
-// 			if err != nil {
-// 				return nil, fmt.Errorf("placeholder replace: %w", err)
-// 			}
-// 			o, err := classify.Parse(repl)
-// 			if err != nil {
-// 				return nil, fmt.Errorf("parse manifest: %w", err)
-// 			}
-// 			objs = append(objs, o)
-// 		}
-// 	}
-
-// 	groups := classify.Classify(objs)
-
-// 	// Build RGD resources from classified objects
-// 	crdResources, err := buildCRDResources(groups.CRDs)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	ctrlResources, err := buildControllerResources(append(append(append(groups.Core, groups.RBAC...), groups.Deployments...), groups.Others...))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// // order matters: graph-*-crds first
-// ctrlResources = append([]Resource{graphCRDItem}, ctrlResources...)
-
-// ctrlSchema := Schema{
-// 		APIVersion: "v1alpha1",
-// 		Kind:       serviceUpper + "controller",
-// 		Spec: SchemaSpec{
-// 			Name:      "${schema.spec.name}",
-// 			Namespace: "${schema.spec.namespace}",
-// 			Values: map[string]any{
-// 				"aws": map[string]any{
-// 					"accountID": "${schema.spec.values.aws.accountID}",
-// 					"region":    "${schema.spec.values.aws.region}",
-// 				},
-// 				"deployment": map[string]any{
-// 					"containerPort": 8080,
-// 					"replicas":      1,
-// 				},
-// 				"iamRole": map[string]any{
-// 					"oidcProvider":       "${schema.spec.values.iamRole.oidcProvider}",
-// 					"maxSessionDuration": 3600,
-// 				},
-// 				"image": map[string]any{
-// 					"repository":  "${schema.spec.values.image.repository}",
-// 					"tag":         "${schema.spec.values.image.tag}",
-// 					"deletePolicy": "${schema.spec.values.image.deletePolicy}",
-// 					"resources": map[string]any{
-// 						"requests": map[string]any{"memory": "64Mi", "cpu": "50m"},
-// 						"limits":   map[string]any{"memory": "128Mi", "cpu": "100m"},
-// 					},
-// 				},
-// 				"log": map[string]any{
-// 					"enabled": "${schema.spec.values.log.enabled}",
-// 					"level":   "${schema.spec.values.log.level}",
-// 				},
-// 				"serviceAccount": map[string]any{
-// 					"name": "${schema.spec.values.serviceAccount.name}",
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	crdSchema := Schema{
-// 		APIVersion: "v1alpha1",
-// 		Kind:       serviceUpper + "crdgraph",
-// 		Spec: SchemaSpec{
-// 			Name: "${schema.spec.name}",
-// 		},
-// 	}
-
-// 	crdsRGD := RGD{
-// 		APIVersion: "kro.run/v1alpha1",
-// 		Kind:       "ResourceGraphDefinition",
-// 		Metadata: Metadata{
-// 			Name:      fmt.Sprintf("ack-%s-crds.kro.run", gs.Service),
-// 			Namespace: "kro",
-// 		},
-// 		Spec: RGDSpec{
-// 			Schema:    crdSchema,
-// 			Resources: crdResources,
-// 		},
-// 	}
-
-// 	ctrlRGD := RGD{
-// 		APIVersion: "kro.run/v1alpha1",
-// 		Kind:       "ResourceGraphDefinition",
-// 		Metadata: Metadata{
-// 			Name:      fmt.Sprintf("ack-%s-ctrl.kro.run", gs.Service),
-// 			Namespace: "kro",
-// 		},
-// 		Spec: RGDSpec{
-// 			Schema:    ctrlSchema,
-// 			Resources: ctrlResources,
-// 		},
-// 	}
-
-// 	outAckDir := filepath.Join(absOutDir, "ack")
-// 	if err := os.MkdirAll(outAckDir, 0o755); err != nil {
-// 		return nil, err
-// 	}
-// 	crdsPath := filepath.Join(outAckDir, fmt.Sprintf("%s-crds.yaml", gs.Service))
-// 	ctrlPath := filepath.Join(outAckDir, fmt.Sprintf("%s-ctrl.yaml", gs.Service))
-
-// 	for _, p := range []string{crdsPath, ctrlPath} {
-// 		absP, _ := filepath.Abs(p)
-// 		if !strings.HasPrefix(absP, absOutDir+string(filepath.Separator)) {
-// 			return nil, errors.New("refusing to write outside the output directory")
-// 		}
-// 	}
-
-// 	if err := writeYAML(crdsPath, crdsRGD); err != nil {
-// 		return nil, err
-// 	}
-// 	if err := writeYAML(ctrlPath, ctrlRGD); err != nil {
-// 		return nil, err
-// 	}
-// 	return []string{crdsPath, ctrlPath}, nil
-// }
-
-// func buildCRDResources(list []classify.Obj) ([]Resource, error) {
-// 	res := make([]Resource, 0, len(list))
-// 	seen := map[string]int{}
-// 	for _, o := range list {
-// 		var m map[string]any
-// 		if err := yaml.Unmarshal([]byte(o.RawYAML), &m); err != nil {
-// 			return nil, err
-// 		}
-// 		// Expect CRD kind and name like "<plural>.<group>"
-// 		base := o.Name
-// 		if idx := strings.Index(base, "."); idx > 0 {
-// 			base = base[:idx]
-// 		}
-// 		id := "graph-" + makeID(base)
-// 		seen[id]++
-// 		if seen[id] > 1 {
-// 			id = fmt.Sprintf("%s-%d", id, seen[id])
-// 		}
-// 		res = append(res, Resource{ID: id, Template: m})
-// 	}
-// 	return res, nil
-// }
-
-// func buildControllerResources(list []classify.Obj) ([]Resource, error) {
-// 	res := make([]Resource, 0, len(list))
-// 	seen := map[string]int{}
-// 	for _, o := range list {
-// 		var m map[string]any
-// 		if err := yaml.Unmarshal([]byte(o.RawYAML), &m); err != nil {
-// 			return nil, err
-// 		}
-// 		id := controllerIDForKind(o.Kind)
-// 		seen[id]++
-// 		if seen[id] > 1 {
-// 			id = fmt.Sprintf("%s-%d", id, seen[id])
-// 		}
-// 		res = append(res, Resource{ID: id, Template: m})
-// 	}
-// 	return res, nil
-// }
-
-// func controllerIDForKind(kind string) string {
-// 	k := strings.ToLower(strings.TrimSpace(kind))
-// 	switch k {
-// 	// case "deployment":
-// 	// 	return "graph-deployment"
-// 	// case "role":
-// 	// 	return "graph-role"
-// 	// case "clusterrole":
-// 	// 	return "graph-clusterrole"
-// 	// case "rolebinding":
-// 	// 	return "graph-rolebinding"
-// 	// case "clusterrolebinding":
-// 	// 	return "graph-clusterrolebinding"
-// 	// case "serviceaccount":
-// 	// 	return "graph-serviceaccount"
-// 	// case "configmap":
-// 	// 	return "graph-configmap"
-// 	// case "secret":
-// 	// 	return "graph-secret"
-// 	// case "service":
-// 	// 	return "graph-service"
-// 	// case "poddisruptionbudget":
-// 	// 	return "graph-pdb"
-// 	default:
-// 		return "graph-" + makeID(k)
-// 	}
-// }
-
-// func writeYAML(path string, v any) error {
-// 	b, err := marshalYAML(v)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return os.WriteFile(path, b, 0o644)
-// }
-
-// func marshalYAML(v any) ([]byte, error) {
-// 	var buf strings.Builder
-// 	enc := yaml.NewEncoder(&buf)
-// 	enc.SetIndent(2)
-// 	if err := enc.Encode(v); err != nil {
-// 		return nil, err
-// 	}
-// 	_ = enc.Close()
-// 	return []byte(buf.String()), nil
-// }
-
-// var nonAlnum = regexp.MustCompile(`[^a-z0-9-]`)
-
-// func makeID(s string) string {
-// 	s = strings.ToLower(s)
-// 	s = strings.ReplaceAll(s, " ", "-")
-// 	s = nonAlnum.ReplaceAllString(s, "-")
-// 	s = strings.Trim(s, "-")
-// 	if s == "" {
-// 		s = "res"
-// 	}
-// 	return s
-// }
+func writeRGD(dir, name string, v any) error {
+  if err := os.MkdirAll(dir, 0o755); err != nil { return err }
+  b, err := yaml.Marshal(v); if err != nil { return err }
+  path := filepath.Join(dir, name)
+  return os.WriteFile(path, b, 0o644)
+}

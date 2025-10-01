@@ -1,45 +1,46 @@
-package placeholders
+package replace
 
 import (
-	"bytes"
+	"regexp"
+	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
-var sentinelToSchema = map[string]string{
-	"__KRO_NAME__":       "${schema.spec.name}",
-	"__KRO_NS__":         "${schema.spec.namespace}",
-	"__KRO_IMAGE_REPO__": "${schema.spec.values.image.repository}",
-	"__KRO_IMAGE_TAG__":  "${schema.spec.values.image.tag}",
-	"__KRO_SA_NAME__":    "${schema.spec.values.serviceAccount.name}",
-	"__KRO_IRSA_ARN__":   "${ackIamRole.status.ackResourceMetadata.arn}",
-	"__KRO_AWS_REGION__": "${schema.spec.values.aws.region}",
-	"__KRO_LOG_LEVEL__":  "${schema.spec.values.log.level}",
-	"__KRO_LOG_DEV__":    "${schema.spec.values.log.enabled}",
-}
-
-// ReplaceYAMLScalars walks the YAML AST and replaces sentinel strings inside scalar nodes only.
-func ReplaceYAMLScalars(in string) (string, error) {
-	var root yaml.Node
-	if err := yaml.Unmarshal([]byte(in), &root); err != nil { return "", err }
-	walk(&root)
-	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
-	enc.SetIndent(2)
-	if err := enc.Encode(&root); err != nil { return "", err }
-	_ = enc.Close()
-	return buf.String(), nil
-}
-
-func walk(n *yaml.Node) {
-	if n == nil { return }
-	if n.Kind == yaml.ScalarNode && n.Tag == "!!str" {
-		for k, v := range sentinelToSchema {
-			if strings.Contains(n.Value, k) {
-				n.Value = strings.ReplaceAll(n.Value, k, v)
-			}
-		}
+// ApplySentinelToSchema replaces template sentinels with ${schema...} refs.
+func ApplySentinelToSchema(in string) string {
+	// Longest-key-first to avoid partial overlaps.
+	keys := make([]string, 0, len(SentinelToSchema))
+	for k := range SentinelToSchema {
+		keys = append(keys, k)
 	}
-	for _, c := range n.Content { walk(c) }
+	sort.Slice(keys, func(i, j int) bool { return len(keys[i]) > len(keys[j]) })
+
+	out := in
+	for _, k := range keys {
+		out = strings.ReplaceAll(out, k, SentinelToSchema[k])
+	}
+	return out
+}
+
+// ApplySchemaDefaults replaces ${schema...} refs with concrete defaults.
+// Only applied when emitting schema defaults or when materializing examples.
+func ApplySchemaDefaults(in string) string {
+	// Use regex to catch ${...} tokens even if new ones are added later.
+	re := regexp.MustCompile(`\$\{schema\.spec[^}]*\}`)
+	return re.ReplaceAllStringFunc(in, func(tok string) string {
+		if v, ok := SchemaDefaults[tok]; ok {
+			return v
+		}
+		// Unknown token passes through unchanged.
+		return tok
+	})
+}
+
+// ReplaceAll does both passes in correct order.
+func ReplaceAll(in string, withDefaults bool) string {
+	out := ApplySentinelToSchema(in)
+	if withDefaults {
+		out = ApplySchemaDefaults(out)
+	}
+	return out
 }

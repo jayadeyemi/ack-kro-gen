@@ -127,7 +127,7 @@ func buildValues(gs config.GraphSpec) map[string]any {
 		"logLevel": gs.Controller.LogLevel,
 		"logDev":   gs.Controller.LogDev,
 		"aws": map[string]any{
-			"region": gs.Controller.AWSRegion,
+			"region": gs.AWS.Region,
 		},
 	}
 

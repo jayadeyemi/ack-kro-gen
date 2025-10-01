@@ -13,14 +13,15 @@ type Root struct {
 }
 
 type GraphSpec struct {
-	Service       string         `yaml:"service"`
-	Version       string         `yaml:"version"`
-	ReleaseName   string         `yaml:"releaseName"`
-	Namespace     string         `yaml:"namespace"`
-	Image         ImageSpec      `yaml:"image"`
-	ServiceAccount SASpec        `yaml:"serviceAccount"`
-	Controller    ControllerSpec `yaml:"controller"`
-	Extras        ExtrasSpec     `yaml:"extras"`
+	Service        string         `yaml:"service"`
+	Version        string         `yaml:"version"`
+	ReleaseName    string         `yaml:"releaseName"`
+	Namespace      string         `yaml:"namespace"`
+	AWS            AWSSpec        `yaml:"aws"`
+	Image          ImageSpec      `yaml:"image"`
+	ServiceAccount SASpec         `yaml:"serviceAccount"`
+	Controller     ControllerSpec `yaml:"controller"`
+	Extras         ExtrasSpec     `yaml:"extras"`
 }
 
 type ImageSpec struct {
@@ -33,10 +34,17 @@ type SASpec struct {
 	Annotations map[string]string `yaml:"annotations"`
 }
 
+type AWSSpec struct {
+	Region      string `yaml:"region"`
+	AccountID   string `yaml:"accountID"`
+	Credentials string `yaml:"credentials"`
+	SecretName  string `yaml:"secretName"`
+	Profile     string `yaml:"profile"`
+}
 type ControllerSpec struct {
-	LogLevel  string `yaml:"logLevel"`
-	LogDev    string `yaml:"logDev"`
-	AWSRegion string `yaml:"awsRegion"`
+	LogLevel  		 string `yaml:"logLevel"`
+	LogDev         string `yaml:"logDev"`
+	WatchNamespace string `yaml:"watchNamespace"`
 }
 
 type ExtrasSpec struct {
@@ -50,7 +58,7 @@ func Load(path string) (*Root, error) {
 	if err := yaml.Unmarshal(b, &r); err != nil { return nil, err }
 	if len(r.Graphs) == 0 { return nil, errors.New("graphs: at least one service is required") }
 	for i, g := range r.Graphs {
-		if g.Service == "" || g.Version == "" { return nil, fmt.Errorf("graphs[%d]: service and version are required", i) }
+		if g.Service == "" || g.Image.Tag == "" { return nil, fmt.Errorf("graphs[%d]: service and image tag are required", i) }
 		if g.ReleaseName == "" || g.Namespace == "" { return nil, fmt.Errorf("graphs[%d]: releaseName and namespace are required", i) }
 	}
 	return &r, nil
