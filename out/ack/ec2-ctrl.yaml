@@ -37,7 +37,15 @@ spec:
         serviceAccount:
           name: ${schema.spec.values.serviceAccount.name}
   resources:
-    - id: serviceaccount---schema-spec-values-serviceaccount-name
+    - id: graph-ec2-crds
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: Ec2crdgraph
+        metadata:
+          name: ${schema.spec.name}-crd-graph
+        spec:
+          name: ${schema.spec.name}-crd-graph
+    - id: graph-serviceaccount
       template:
         apiVersion: v1
         kind: ServiceAccount
@@ -53,7 +61,7 @@ spec:
             k8s-app: ec2-chart
           name: ${schema.spec.values.serviceAccount.name}
           namespace: ${schema.spec.namespace}
-    - id: clusterrole---schema-spec-name--ec2-chart
+    - id: graph-clusterrole
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRole
@@ -161,7 +169,7 @@ spec:
               - get
               - patch
               - update
-    - id: clusterrole---schema-spec-name--ec2-chart-namespaces-cache
+    - id: graph-clusterrole-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRole
@@ -183,7 +191,7 @@ spec:
               - get
               - list
               - watch
-    - id: clusterrolebinding---schema-spec-name--ec2-chart-namespaces-cache
+    - id: graph-clusterrolebinding
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRoleBinding
@@ -204,7 +212,7 @@ spec:
           - kind: ServiceAccount
             name: ${schema.spec.values.serviceAccount.name}
             namespace: ${schema.spec.namespace}
-    - id: clusterrolebinding---schema-spec-name--ec2-chart-rolebinding
+    - id: graph-clusterrolebinding-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRoleBinding
@@ -225,7 +233,7 @@ spec:
           - kind: ServiceAccount
             name: ${schema.spec.values.serviceAccount.name}
             namespace: ${schema.spec.namespace}
-    - id: role---schema-spec-name--ec2-chart-configmaps-cache
+    - id: graph-role
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -248,7 +256,7 @@ spec:
               - get
               - list
               - watch
-    - id: role---schema-spec-name--ec2-chart-reader
+    - id: graph-role-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -289,7 +297,7 @@ spec:
               - get
               - list
               - watch
-    - id: role---schema-spec-name--ec2-chart-writer
+    - id: graph-role-3
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -359,7 +367,7 @@ spec:
               - get
               - patch
               - update
-    - id: rolebinding---schema-spec-name--ec2-chart-configmaps-cache
+    - id: graph-rolebinding
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding
@@ -381,7 +389,7 @@ spec:
           - kind: ServiceAccount
             name: ${schema.spec.values.serviceAccount.name}
             namespace: ${schema.spec.namespace}
-    - id: deployment---schema-spec-name--ec2-chart
+    - id: graph-deployment
       template:
         apiVersion: apps/v1
         kind: Deployment

@@ -10,14 +10,16 @@ import (
 	"runtime"
 	"strings"
 	"time"
+  "gopkg.in/yaml.v3"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/example/ack-kro-gen/internal/config"
-	"github.com/example/ack-kro-gen/internal/helmfetch"
-	"github.com/example/ack-kro-gen/internal/kro"
-	"github.com/example/ack-kro-gen/internal/render"
+	"github.com/jayadeyemi/ack-kro-gen/internal/config"
+	"github.com/jayadeyemi/ack-kro-gen/internal/util"
+	"github.com/jayadeyemi/ack-kro-gen/internal/helmfetch"
+	"github.com/jayadeyemi/ack-kro-gen/internal/kro"
+	"github.com/jayadeyemi/ack-kro-gen/internal/render"
 )
 
 var (
@@ -38,6 +40,8 @@ func main() {
 				return errors.New("--graphs, --out, and --charts-cache are required")
 			}
 
+			log.Printf("start: graphs=%s out=%s cache=%s offline=%v concurrency=%d", flagGraphs, flagOut, flagCache, flagOffline, flagConcurrency)
+
 			absOut, err := filepath.Abs(flagOut)
 			if err != nil {
 				return err
@@ -54,6 +58,7 @@ func main() {
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 			defer cancel()
 
+			start := time.Now()
 			sem := make(chan struct{}, flagConcurrency)
 			g, ctx := errgroup.WithContext(ctx)
 
@@ -64,28 +69,54 @@ func main() {
 					defer func() { <-sem }()
 
 					chartRef := fmt.Sprintf("oci://public.ecr.aws/aws-controllers-k8s/%s-chart:%s", gs.Service, gs.Version)
+					log.Printf("[%s] fetch: ref=%s", gs.Service, chartRef)
 					chartPath, err := helmfetch.EnsureChart(ctx, chartRef, flagCache, flagOffline)
 					if err != nil {
 						return fmt.Errorf("fetch chart for %s: %w", gs.Service, err)
 					}
+					log.Printf("[%s] fetch: cached at %s", gs.Service, chartPath)
 
+					log.Printf("[%s] render: begin", gs.Service)
 					r, err := render.RenderChart(ctx, chartPath, gs)
 					if err != nil {
 						return fmt.Errorf("render %s: %w", gs.Service, err)
 					}
+ 					log.Printf("[%s] render: crds=%d files=%d", gs.Service, len(r.CRDs), len(r.RenderedFiles))
+
+					// Quick preview of first few manifest doc kinds for visibility
+					firstKinds := []string{}
+					maxPreview := 5
+					for _, body := range r.RenderedFiles {
+						for _, doc := range util.SplitYAML(body) {
+							if len(firstKinds) >= maxPreview { break }
+							var k struct{ Kind string `yaml:"kind"` }
+							if err := yaml.Unmarshal([]byte(doc), &k); err == nil && k.Kind != "" {
+								firstKinds = append(firstKinds, k.Kind)
+							}
+						}
+						if len(firstKinds) >= maxPreview { break }
+					}
+					log.Printf("[%s] render: preview kinds=%v", gs.Service, firstKinds)
 
 					// Write separate CRD and controller graphs named from their RGD metadata.name
+					log.Printf("[%s] emit: begin", gs.Service)
 					wrote, err := kro.EmitRGDs(gs, r, absOut)
 					if err != nil {
 						return fmt.Errorf("emit rgds for %s: %w", gs.Service, err)
 					}
 					for _, f := range wrote {
-						log.Printf("wrote %s", f)
+						fi, _ := os.Stat(f)
+						size := int64(-1)
+						if fi != nil { size = fi.Size() }
+						log.Printf("[%s] emit: wrote %s bytes=%d", gs.Service, f, size)
 					}
+					log.Printf("[%s] done", gs.Service)
 					return nil
 				})
 			}
-			return g.Wait()
+			if err := g.Wait(); err != nil { return err }
+			log.Printf("complete in %s", time.Since(start).Round(time.Millisecond))
+			return nil
 		},
 	}
 

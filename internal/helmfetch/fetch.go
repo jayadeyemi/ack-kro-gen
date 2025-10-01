@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,17 +50,22 @@ func EnsureChart(ctx context.Context, chartRef, cacheDir string, offline bool) (
 	archive := filepath.Join(pwd, fmt.Sprintf("%s-%s.tgz", sanitize(filepath.Base(name)), version))
 
 	if fi, err := os.Stat(archive); err == nil && fi.Size() > 0 {
+		log.Printf("helmfetch: cache hit %s (%d bytes)", archive, fi.Size())
 		return archive, nil
 	}
 	if offline {
 		return "", fmt.Errorf("offline mode and chart not cached: %s", archive)
 	}
+	log.Printf("helmfetch: downloading %s to %s", chartRef, archive)
 	if _, _, err := cd.DownloadTo(name, version, pwd); err != nil {
 		return "", fmt.Errorf("download: %w", err)
 	}
 	if _, err := os.Stat(archive); err != nil {
 		return "", fmt.Errorf("downloaded chart archive missing: %s", archive)
 	}
+	
+	fi, _ := os.Stat(archive)
+	if fi != nil { log.Printf("helmfetch: downloaded %s (%d bytes)", archive, fi.Size()) }
 	return archive, nil
 }
 
