@@ -11,9 +11,9 @@ import (
 // ControllerValues builds the values block for the controller graph schema using
 // chart defaults and GraphSpec overrides.
 func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]any {
-    // Seed with full set of controller defaults derived from SchemaDefaults.
-    // Chart defaults are not provided here, so pass nil.
-    values, _ := controllerDefaults(gs, nil)
+	// Seed with full set of controller defaults derived from SchemaDefaults.
+	// Chart defaults are not provided here, so pass nil.
+	values, _ := controllerDefaults(gs, nil)
 
 	serviceName := strings.TrimSpace(gs.Service)
 
@@ -28,13 +28,13 @@ func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]
 
 	setNestedValue(values, []string{"watchNamespace"}, StringDefault(gs.Controller.WatchNamespace, schemaDefaultValue("watchNamespace")))
 
-    repoFallback := DefaultRepo(serviceName)
+	repoFallback := DefaultRepo(serviceName)
 	if repoFallback == "" {
 		repoFallback = schemaDefaultValue("image.repository")
 	}
 	setNestedValue(values, []string{"image", "repository"}, StringDefault(gs.Image.Repository, repoFallback))
 
-    tagFallback := DefaultTag()
+	tagFallback := DefaultTag(gs)
 	if tagFallback == "" {
 		tagFallback = schemaDefaultValue("image.tag")
 	}
@@ -65,30 +65,36 @@ func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]
 // schemaDefaultValue returns the raw default string for a given schema path
 // like "aws.accountID" by looking up SchemaDefaults.
 func schemaDefaultValue(path string) string {
-    key := "${schema.spec." + strings.TrimSpace(path) + "}"
-    if v, ok := SchemaDefaults[key]; ok {
-        return strings.TrimSpace(v)
-    }
-    return ""
+	key := "${schema.spec." + strings.TrimSpace(path) + "}"
+	if v, ok := SchemaDefaults[key]; ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }
 
 // schemaDefaultBool returns the boolean value of a schema default.
 func schemaDefaultBool(path string) bool {
-    v := strings.ToLower(strings.TrimSpace(schemaDefaultValue(path)))
-    return v == "true"
+	v := strings.ToLower(strings.TrimSpace(schemaDefaultValue(path)))
+	return v == "true"
 }
 
 // DefaultRepo returns the default ACK controller image repository for a service name.
 func DefaultRepo(serviceName string) string {
-    svc := strings.TrimSpace(serviceName)
-    if svc == "" {
-        return ""
-    }
-    return fmt.Sprintf("public.ecr.aws/aws-controllers-k8s/%s-controller", strings.ToLower(svc))
+	svc := strings.TrimSpace(serviceName)
+	if svc == "" {
+		return ""
+	}
+	return fmt.Sprintf("public.ecr.aws/aws-controllers-k8s/%s-controller", strings.ToLower(svc))
 }
 
-// DefaultTag returns an empty string; Image.Tag from GraphSpec is required and will be used.
-func DefaultTag() string { return "" }
+// DefaultTag returns the chart version when an image tag is not provided.
+func DefaultTag(gs config.GraphSpec) string {
+	ver := strings.TrimSpace(gs.Version)
+	if ver == "" {
+		return ""
+	}
+	return ver
+}
 
 func controllerDefaults(gs config.GraphSpec, chartDefaults map[string]any) (map[string]any, map[string]string) {
 	allowedRoots := map[string]struct{}{
@@ -174,7 +180,6 @@ func flattenChartDefaults(prefix []string, value any, out map[string]string) {
 	}
 	out[key] = marshalScalar(value)
 }
-
 
 func marshalScalar(v any) string {
 	switch t := v.(type) {

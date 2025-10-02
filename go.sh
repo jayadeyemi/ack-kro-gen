@@ -25,7 +25,8 @@ step "build"
 go build -o "$BIN" ./cmd/ack-kro-gen
 
 step "list graphs"
-grep -nE 'service:|version:|releaseName:|namespace:' "$GRAPHS" || true
+echo "(releaseName/namespace/image.tag are optional; defaults: ack-<service>-controller / ack-system / chart version)"
+grep -nE 'service:|version:|releaseName:|namespace:|tag:' "$GRAPHS" || true
 
 step "warm cache check"
 ls -lah "$CACHE" || mkdir -p "$CACHE"

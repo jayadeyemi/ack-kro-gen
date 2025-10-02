@@ -2,6 +2,7 @@ package render
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
@@ -9,7 +10,8 @@ import (
 
 func TestRenderDummyChart(t *testing.T) {
 	ctx := context.Background()
-	res, err := RenderChart(ctx, "internal/render/testdata/dummychart", config.GraphSpec{
+	chartPath := filepath.Join("testdata", "dummychart")
+	res, err := RenderChart(ctx, chartPath, config.GraphSpec{
 		Service:     "dummy",
 		Version:     "0.1.0",
 		ReleaseName: "__KRO_NAME__",
