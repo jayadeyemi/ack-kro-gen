@@ -66,7 +66,7 @@ var SentinelToSchema = map[string]string{
 
 // Map schema references -> concrete defaults for filling ${...} when writing defaults.
 var SchemaDefaults = map[string]string{
-	"${schema.spec.name}":                                 "ack-ec2-controller",
+	"${schema.spec.name}":                                 "_CONTROLLER_NAME_",
 	"${schema.spec.namespace}":                            "ack-system",
 	"${schema.spec.aws.accountID}":                        "",
 	"${schema.spec.aws.region}":                           "",
@@ -75,8 +75,8 @@ var SchemaDefaults = map[string]string{
 	"${schema.spec.aws.credentials.secretKey}":            "credentials",
 	"${schema.spec.aws.credentials.profile}":              "default",
 	"${schema.spec.deletionPolicy}":                       "delete",
-	"${schema.spec.image.repository}":                     "public.ecr.aws/aws-controllers-k8s/ec2-controller",
-	"${schema.spec.image.tag}":                            "1.7.0",
+	"${schema.spec.image.repository}":                     "_IMAGE_REPOSITORY_",
+	"${schema.spec.image.tag}":                            "_IMAGE_TAG_",
 	"${schema.spec.image.pullPolicy}":                     "IfNotPresent",
 	"${schema.spec.image.pullSecrets}":                    "[]",
 	"${schema.spec.deployment.replicas}":                  "1",
@@ -105,7 +105,7 @@ var SchemaDefaults = map[string]string{
 	"${schema.spec.installScope}":                         "cluster",
 	"${schema.spec.watchNamespace}":                       `""`,
 	"${schema.spec.watchSelectors}":                       `""`,
-	"${schema.spec.resourceTags}":                         `["services.k8s.aws/controller-version=_CONTROLLER_SERVICE_-_CONTROLLER_VERSION_","services.k8s.aws/namespace=_NAMESPACE_"]`,
+	"${schema.spec.resourceTags}":                         `["services.k8s.aws/controller-version=_CONTROLLER_NAME_-_IMAGE_TAG_","services.k8s.aws/namespace=_NAMESPACE_"]`,
 	"${schema.spec.reconcile.defaultResyncPeriod}":        "10h",
 	"${schema.spec.reconcile.resourceResyncPeriods}":      "{}",
 	"${schema.spec.reconcile.defaultMaxConcurrentSyncs}":  "5",
@@ -114,12 +114,12 @@ var SchemaDefaults = map[string]string{
 	"${schema.spec.enableCARM}":                           "true",
 	"${schema.spec.featureGates}":                         `{"ServiceLevelCARM":false,"TeamLevelCARM":false,"ReadOnlyResources":true,"ResourceAdoption":true}`,
 	"${schema.spec.serviceAccount.create}":                "true",
-	"${schema.spec.serviceAccount.name}":                  "ack-ec2-controller",
+	"${schema.spec.serviceAccount.name}":                  "_CONTROLLER_NAME_",
 	"${schema.spec.serviceAccount.annotations}":           "{}",
 	"${schema.spec.leaderElection.enabled}":               "false",
-	"${schema.spec.leaderElection.namespace}":             "${schema.spec.namespace}",
+	"${schema.spec.leaderElection.namespace}":             "_NAMESPACE_",
 	// IRSA convenience
 	"${schema.spec.iamRole.oidcProvider}":       "",
 	"${schema.spec.iamRole.maxSessionDuration}": "3600",
-	"${schema.spec.iamRole.roleDescription}":    "IRSA role for ACK ec2 controller deployment on EKS cluster using KRO Resource Graph",
+	"${schema.spec.iamRole.roleDescription}":    "IRSA role for ACK _SERVICE_LOWER_ controller deployment on EKS cluster using KRO Resource Graph",
 }
