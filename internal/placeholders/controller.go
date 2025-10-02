@@ -8,9 +8,8 @@ import (
 )
 
 // ControllerValues builds the values block for the controller graph schema.
-func ControllerValues(gs config.GraphSpec, serviceUpper string) map[string]any {
+func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]any {
 	values := defaultControllerValues()
-	_ = serviceUpper
 
 	serviceName := strings.TrimSpace(gs.Service)
 
@@ -51,6 +50,10 @@ func ControllerValues(gs config.GraphSpec, serviceUpper string) map[string]any {
 		roleFallback = fmt.Sprintf("IRSA role for ACK %s controller deployment on EKS cluster using KRO Resource Graph", strings.ToLower(serviceName))
 	}
 	setNestedValue(values, []string{"iamRole", "roleDescription"}, StringDefault("", roleFallback))
+
+	if len(overrides) > 0 {
+		values["overrides"] = overrides
+	}
 
 	return values
 }

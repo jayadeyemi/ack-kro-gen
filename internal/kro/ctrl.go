@@ -56,11 +56,7 @@ func MakeCtrlRGD(gs config.GraphSpec, serviceUpper string, ctrlResources []Resou
 
 // CtrlSchema assembles the schema for controller graphs using shared placeholders.
 func CtrlSchema(gs config.GraphSpec, serviceUpper string) Schema {
-	values := placeholders.ControllerValues(gs, serviceUpper)
-
-	if len(gs.Extras.Values) > 0 {
-		values["overrides"] = gs.Extras.Values
-	}
+	values := placeholders.ControllerValues(gs, gs.Extras.Values)
 
 	return Schema{
 		APIVersion: "v1alpha1",
