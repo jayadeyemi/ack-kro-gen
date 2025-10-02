@@ -3,7 +3,6 @@ package placeholders
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
@@ -11,40 +10,85 @@ import (
 
 // ControllerValues builds the values block for the controller graph schema using
 // chart defaults and GraphSpec overrides.
-func ControllerValues(gs config.GraphSpec, chartDefaults map[string]any) map[string]any {
-	values, rawDefaults := controllerDefaults(gs, chartDefaults)
+func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]any {
+    // Seed with full set of controller defaults derived from SchemaDefaults.
+    // Chart defaults are not provided here, so pass nil.
+    values, _ := controllerDefaults(gs, nil)
 
-	setNestedValue(values, []string{"aws", "accountID"}, StringDefault(gs.AWS.AccountID, rawValue(rawDefaults, "aws.accountID")))
-	setNestedValue(values, []string{"aws", "region"}, StringDefault(gs.AWS.Region, rawValue(rawDefaults, "aws.region")))
-	setNestedValue(values, []string{"aws", "credentials", "secretName"}, StringDefault(gs.AWS.SecretName, rawValue(rawDefaults, "aws.credentials.secretName")))
-	setNestedValue(values, []string{"aws", "credentials", "secretKey"}, StringDefault(gs.AWS.Credentials, rawValue(rawDefaults, "aws.credentials.secretKey")))
-	setNestedValue(values, []string{"aws", "credentials", "profile"}, StringDefault(gs.AWS.Profile, rawValue(rawDefaults, "aws.credentials.profile")))
+	serviceName := strings.TrimSpace(gs.Service)
 
-	setNestedValue(values, []string{"log", "enable_development_logging"}, BoolDefault(gs.Controller.LogDev, boolFallback(rawDefaults, "log.enable_development_logging")))
-	setNestedValue(values, []string{"log", "level"}, StringDefault(gs.Controller.LogLevel, rawValue(rawDefaults, "log.level")))
+	setNestedValue(values, []string{"aws", "accountID"}, StringDefault(gs.AWS.AccountID, schemaDefaultValue("aws.accountID")))
+	setNestedValue(values, []string{"aws", "region"}, StringDefault(gs.AWS.Region, schemaDefaultValue("aws.region")))
+	setNestedValue(values, []string{"aws", "credentials", "secretName"}, StringDefault(gs.AWS.SecretName, schemaDefaultValue("aws.credentials.secretName")))
+	setNestedValue(values, []string{"aws", "credentials", "secretKey"}, StringDefault(gs.AWS.Credentials, schemaDefaultValue("aws.credentials.secretKey")))
+	setNestedValue(values, []string{"aws", "credentials", "profile"}, StringDefault(gs.AWS.Profile, schemaDefaultValue("aws.credentials.profile")))
 
-	setNestedValue(values, []string{"watchNamespace"}, StringDefault(gs.Controller.WatchNamespace, rawValue(rawDefaults, "watchNamespace")))
+	setNestedValue(values, []string{"log", "enable_development_logging"}, BoolDefault(gs.Controller.LogDev, schemaDefaultBool("log.enable_development_logging")))
+	setNestedValue(values, []string{"log", "level"}, StringDefault(gs.Controller.LogLevel, schemaDefaultValue("log.level")))
 
-	setNestedValue(values, []string{"image", "repository"}, StringDefault(gs.Image.Repository, rawValue(rawDefaults, "image.repository")))
-	setNestedValue(values, []string{"image", "tag"}, StringDefault(gs.Image.Tag, rawValue(rawDefaults, "image.tag")))
+	setNestedValue(values, []string{"watchNamespace"}, StringDefault(gs.Controller.WatchNamespace, schemaDefaultValue("watchNamespace")))
 
-	controllerName := rawValue(rawDefaults, "serviceAccount.name")
-	if controllerName == "" {
-		controllerName = defaultControllerName(gs)
+    repoFallback := DefaultRepo(serviceName)
+	if repoFallback == "" {
+		repoFallback = schemaDefaultValue("image.repository")
 	}
-	setNestedValue(values, []string{"serviceAccount", "name"}, StringDefault(gs.ServiceAccount.Name, controllerName))
+	setNestedValue(values, []string{"image", "repository"}, StringDefault(gs.Image.Repository, repoFallback))
+
+    tagFallback := DefaultTag()
+	if tagFallback == "" {
+		tagFallback = schemaDefaultValue("image.tag")
+	}
+	setNestedValue(values, []string{"image", "tag"}, StringDefault(gs.Image.Tag, tagFallback))
+
+	saFallback := schemaDefaultValue("serviceAccount.name")
+	if serviceName != "" {
+		saFallback = fmt.Sprintf("ack-%s-controller", serviceName)
+	}
+	setNestedValue(values, []string{"serviceAccount", "name"}, StringDefault(gs.ServiceAccount.Name, saFallback))
 	setNestedValue(values, []string{"serviceAccount", "annotations"}, MapOrDefault(gs.ServiceAccount.Annotations))
 
-	setNestedValue(values, []string{"leaderElection", "namespace"}, StringDefault(gs.Namespace, rawValue(rawDefaults, "leaderElection.namespace")))
+	setNestedValue(values, []string{"leaderElection", "namespace"}, StringDefault(gs.Namespace, schemaDefaultValue("leaderElection.namespace")))
 
-	roleDescription := rawValue(rawDefaults, "iamRole.roleDescription")
-	if roleDescription == "" {
-		roleDescription = fmt.Sprintf("IRSA role for ACK %s controller deployment on EKS cluster using KRO Resource Graph", strings.ToLower(strings.TrimSpace(gs.Service)))
+	roleFallback := schemaDefaultValue("iamRole.roleDescription")
+	if serviceName != "" {
+		roleFallback = fmt.Sprintf("IRSA role for ACK %s controller deployment on EKS cluster using KRO Resource Graph", strings.ToLower(serviceName))
 	}
-	setNestedValue(values, []string{"iamRole", "roleDescription"}, StringDefault("", roleDescription))
+	setNestedValue(values, []string{"iamRole", "roleDescription"}, StringDefault("", roleFallback))
+
+	if len(overrides) > 0 {
+		values["overrides"] = overrides
+	}
 
 	return values
 }
+
+// schemaDefaultValue returns the raw default string for a given schema path
+// like "aws.accountID" by looking up SchemaDefaults.
+func schemaDefaultValue(path string) string {
+    key := "${schema.spec." + strings.TrimSpace(path) + "}"
+    if v, ok := SchemaDefaults[key]; ok {
+        return strings.TrimSpace(v)
+    }
+    return ""
+}
+
+// schemaDefaultBool returns the boolean value of a schema default.
+func schemaDefaultBool(path string) bool {
+    v := strings.ToLower(strings.TrimSpace(schemaDefaultValue(path)))
+    return v == "true"
+}
+
+// DefaultRepo returns the default ACK controller image repository for a service name.
+func DefaultRepo(serviceName string) string {
+    svc := strings.TrimSpace(serviceName)
+    if svc == "" {
+        return ""
+    }
+    return fmt.Sprintf("public.ecr.aws/aws-controllers-k8s/%s-controller", strings.ToLower(svc))
+}
+
+// DefaultTag returns an empty string; Image.Tag from GraphSpec is required and will be used.
+func DefaultTag() string { return "" }
 
 func controllerDefaults(gs config.GraphSpec, chartDefaults map[string]any) (map[string]any, map[string]string) {
 	allowedRoots := map[string]struct{}{
@@ -116,35 +160,21 @@ func resolveControllerDefaults(gs config.GraphSpec, chartDefaults map[string]any
 }
 
 func flattenChartDefaults(prefix []string, value any, out map[string]string) {
-	switch v := value.(type) {
-	case map[string]any:
-		for k, child := range v {
+	// Recurse only for nested maps. Treat everything else as a scalar.
+	if m, ok := value.(map[string]any); ok {
+		for k, child := range m {
 			flattenChartDefaults(append(prefix, k), child, out)
 		}
-	case map[string]interface{}:
-		for k, child := range v {
-			flattenChartDefaults(append(prefix, fmt.Sprint(k)), child, out)
-		}
-	case []any:
-		key := strings.Join(prefix, ".")
-		if key == "" {
-			return
-		}
-		out[key] = marshalScalar(v)
-	case []interface{}:
-		key := strings.Join(prefix, ".")
-		if key == "" {
-			return
-		}
-		out[key] = marshalScalar(v)
-	default:
-		key := strings.Join(prefix, ".")
-		if key == "" {
-			return
-		}
-		out[key] = marshalScalar(v)
+		return
 	}
+
+	key := strings.Join(prefix, ".")
+	if key == "" {
+		return
+	}
+	out[key] = marshalScalar(value)
 }
+
 
 func marshalScalar(v any) string {
 	switch t := v.(type) {
