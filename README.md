@@ -50,17 +50,23 @@ Run in offline mode (charts must already exist in the cache):
   which drops the binary into `$GOBIN` or `$GOPATH/bin` so you can run `ack-kro-gen` anywhere.
 
 ## graphs.yaml schema
-Each service entry defines the chart version, release parameters, and overrides. Example:
+Each service entry must define the ACK `service` name and the chart `version`. Remaining fields are optional overrides—defaults include:
+- `releaseName`: `ack-<service>-controller`
+- `namespace`: `ack-system`
+- `image.tag`: falls back to the chart `version`
+
+Example:
 
 ```yaml
 graphs:
   - service: s3
     version: "1.2.27"
-    releaseName: "__KRO_NAME__"
-    namespace: "__KRO_NAMESPACE__"
+    # Optional overrides shown below. Omit them to accept defaults.
+    releaseName: "custom-release"         # default: ack-s3-controller
+    namespace: "custom-namespace"         # default: ack-system
     image:
       repository: "__KRO_IMAGE_REPOSITORY__"
-      tag: "__KRO_IMAGE_TAG__"
+      tag: "__KRO_IMAGE_TAG__"            # default: version (1.2.27)
     serviceAccount:
       name: "__KRO_SA_NAME__"
       annotations:
@@ -74,7 +80,7 @@ graphs:
 ```
 
 ## Adding a service
-1. Append a new entry in `graphs.yaml` with `service`, `version`, `releaseName`, and `namespace`. Optional fields allow overriding image, service account, and controller flags.
+1. Append a new entry in `graphs.yaml` with at least `service` and `version`. Override `releaseName`, `namespace`, image settings, or controller flags only when you need non-default behavior.
 2. Run the CLI with your cache and output paths.
 
 ## Offline mode
