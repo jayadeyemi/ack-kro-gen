@@ -117,11 +117,16 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 //
 // Base seeds image, serviceAccount, log flags, and AWS region.
 func buildValues(gs config.GraphSpec) map[string]any {
+	tag := strings.TrimSpace(gs.Image.Tag)
+	if tag == "" {
+		tag = strings.TrimSpace(gs.Version)
+	}
+
 	// Base values seeded from GraphSpec.
 	base := map[string]any{
 		"image": map[string]any{
 			"repository": gs.Image.Repository,
-			"tag":        gs.Image.Tag,
+			"tag":        tag,
 		},
 		"serviceAccount": map[string]any{
 			"name":        gs.ServiceAccount.Name, // string name

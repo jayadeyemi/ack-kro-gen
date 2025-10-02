@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -65,20 +66,30 @@ func Load(path string) (*Root, error) {
 	}
 	for i := range r.Graphs {
 		g := &r.Graphs[i]
+
+		g.Service = strings.TrimSpace(g.Service)
 		if g.Service == "" {
 			return nil, fmt.Errorf("graphs[%d]: service is required", i)
 		}
+
+		g.Version = strings.TrimSpace(g.Version)
 		if g.Version == "" {
 			return nil, fmt.Errorf("graphs[%d]: version is required", i)
 		}
+
+		g.Image.Tag = strings.TrimSpace(g.Image.Tag)
 		if g.Image.Tag == "" {
-			return nil, fmt.Errorf("graphs[%d]: image tag is required", i)
+			g.Image.Tag = g.Version
 		}
+
+		g.ReleaseName = strings.TrimSpace(g.ReleaseName)
 		if g.ReleaseName == "" {
-			return nil, fmt.Errorf("graphs[%d]: releaseName is required", i)
+			g.ReleaseName = fmt.Sprintf("ack-%s-controller", strings.ToLower(g.Service))
 		}
+
+		g.Namespace = strings.TrimSpace(g.Namespace)
 		if g.Namespace == "" {
-			return nil, fmt.Errorf("graphs[%d]: namespace is required", i)
+			g.Namespace = "ack-system"
 		}
 	}
 	return &r, nil
