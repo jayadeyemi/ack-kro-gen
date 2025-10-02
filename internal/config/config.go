@@ -60,9 +60,6 @@ func Load(path string) (*Root, error) {
 	if err := yaml.Unmarshal(b, &r); err != nil {
 		return nil, err
 	}
-	for i := range r.Graphs {
-		applyGraphDefaults(&r.Graphs[i])
-	}
 	if len(r.Graphs) == 0 {
 		return nil, errors.New("graphs: at least one service is required")
 	}
