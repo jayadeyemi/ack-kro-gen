@@ -20,8 +20,7 @@ import (
 	"github.com/jayadeyemi/ack-kro-gen/internal/helmfetch"
 	"github.com/jayadeyemi/ack-kro-gen/internal/kro"
 	"github.com/jayadeyemi/ack-kro-gen/internal/render"
-	"github.com/jayadeyemi/ack-kro-gen/internal/util"
-)
+	)
 
 var (
 	flagGraphs      string
@@ -88,7 +87,7 @@ func main() {
 					firstKinds := []string{}
 					maxPreview := 5
 					for _, body := range r.RenderedFiles {
-						for _, doc := range util.SplitYAML(body) {
+						for _, doc := range render.SplitYAML(body) {
 							if len(firstKinds) >= maxPreview {
 								break
 							}

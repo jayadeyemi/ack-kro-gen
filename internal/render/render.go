@@ -20,8 +20,7 @@ import (
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
-	"github.com/jayadeyemi/ack-kro-gen/internal/util"
-
+	
 	// "gopkg.in/yaml.v3" // not needed here
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -256,5 +255,15 @@ func cloneMap(m map[string]any) map[string]any {
 }
 
 // SplitYAML is re-exported for tests and callers that need to split multi-doc YAML strings.
-// It delegates to internal/util.SplitYAML.
-func SplitYAML(s string) []string { return util.SplitYAML(s) }
+// It delegates to internal/render.SplitYAML.
+func SplitYAML(s string) []string {
+	parts := []string{}
+	for _, p := range strings.Split(s, "\n---") {
+		t := strings.TrimSpace(p)
+		if t == "" { continue }
+		// Ensure trailing newline for deterministic encoding later
+		if !strings.HasSuffix(t, "\n") { t += "\n" }
+		parts = append(parts, t)
+	}
+	return parts
+}
