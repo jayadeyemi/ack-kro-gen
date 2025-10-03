@@ -9,8 +9,8 @@ import (
 )
 
 // ControllerValues builds the values block for the controller graph schema using
-// chart defaults and GraphSpec overrides.
-func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]any {
+// chart defaults, GraphSpec overrides, and observed CRD kinds.
+func ControllerValues(gs config.GraphSpec, overrides map[string]any, crdKinds []string) map[string]any {
 	// Seed with full set of controller defaults derived from SchemaDefaults.
 	// Chart defaults are not provided here, so pass nil.
 	values, _ := controllerDefaults(gs, nil)
@@ -54,6 +54,10 @@ func ControllerValues(gs config.GraphSpec, overrides map[string]any) map[string]
 		roleFallback = fmt.Sprintf("IRSA role for ACK %s controller deployment on EKS cluster using KRO Resource Graph", strings.ToLower(serviceName))
 	}
 	setNestedValue(values, []string{"iamRole", "roleDescription"}, StringDefault("", roleFallback))
+
+	if len(crdKinds) > 0 {
+		setNestedValue(values, []string{"reconcile", "resources"}, stringSliceDefault(crdKinds))
+	}
 
 	if len(overrides) > 0 {
 		values["overrides"] = overrides
@@ -251,7 +255,6 @@ func defaultImageTag(gs config.GraphSpec) string {
 	return strings.TrimSpace(gs.Version)
 }
 
-
 func schemaPathSegments(schemaRef string) []string {
 	ref := strings.TrimSpace(schemaRef)
 	if !strings.HasPrefix(ref, "${") || !strings.HasSuffix(ref, "}") {
@@ -337,7 +340,7 @@ func typeForPath(path string) string {
 	switch {
 	case strings.HasSuffix(lower, "create"), strings.HasSuffix(lower, "enabled"), strings.Contains(lower, "enable_"), strings.HasSuffix(lower, "hostnetwork"), strings.HasSuffix(lower, "enablecarm"):
 		return "boolean"
-	case strings.HasSuffix(lower, "replicas"), strings.HasSuffix(lower, "containerport"), strings.HasSuffix(lower, "defaultmaxconcurrentsyncs"), strings.HasSuffix(lower, "maxsessionduration"):
+	case strings.HasSuffix(lower, "replicas"), strings.HasSuffix(lower, "containerport"), strings.HasSuffix(lower, "defaultmaxconcurrentsyncs"), strings.HasSuffix(lower, "maxsessionduration"), strings.HasSuffix(lower, "defaultresyncperiod"):
 		return "integer"
 	case strings.HasSuffix(lower, "pullsecrets"), strings.HasSuffix(lower, "resourcetags"), strings.HasSuffix(lower, ".resources"):
 		return "string[]"
@@ -372,6 +375,29 @@ func BoolDefault(v string, fallback bool) string {
 		return "boolean | default=true"
 	}
 	return "boolean | default=false"
+}
+
+func stringSliceDefault(items []string) string {
+	if len(items) == 0 {
+		return `string[] | default=[]`
+	}
+	vals := make([]string, 0, len(items))
+	seen := map[string]struct{}{}
+	for _, item := range items {
+		s := strings.TrimSpace(item)
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		vals = append(vals, fmt.Sprintf("\"%s\"", s))
+	}
+	if len(vals) == 0 {
+		return `string[] | default=[]`
+	}
+	return "string[] | default=[" + strings.Join(vals, ",") + "]"
 }
 
 // MapOrDefault converts a map[string]string to map[string]any for YAML emission.

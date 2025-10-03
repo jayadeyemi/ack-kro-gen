@@ -77,6 +77,14 @@ func Load(path string) (*Root, error) {
 			return nil, fmt.Errorf("graphs[%d]: version is required", i)
 		}
 
+		g.Image.Repository = strings.TrimSpace(g.Image.Repository)
+		if g.Image.Repository == "" {
+			g.Image.Repository = fmt.Sprintf(
+				"public.ecr.aws/aws-controllers-k8s/%s-controller",
+				strings.ToLower(g.Service),
+			)
+		}
+
 		g.Image.Tag = strings.TrimSpace(g.Image.Tag)
 		if g.Image.Tag == "" {
 			g.Image.Tag = g.Version

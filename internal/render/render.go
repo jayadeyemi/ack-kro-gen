@@ -17,10 +17,11 @@ import (
 	// "maps" // optional in newer Go for map utilities
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
-	
+
 	// "gopkg.in/yaml.v3" // not needed here
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -116,35 +117,80 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 //
 // Base seeds image, serviceAccount, log flags, and AWS region.
 func buildValues(gs config.GraphSpec) map[string]any {
+	values := map[string]any{}
+
+	repo := strings.TrimSpace(gs.Image.Repository)
 	tag := strings.TrimSpace(gs.Image.Tag)
 	if tag == "" {
 		tag = strings.TrimSpace(gs.Version)
 	}
 
-	// Base values seeded from GraphSpec.
-	base := map[string]any{
-		"image": map[string]any{
-			"repository": gs.Image.Repository,
-			"tag":        tag,
-		},
-		"serviceAccount": map[string]any{
-			"name":        gs.ServiceAccount.Name, // string name
-			"annotations": map[string]any{},       // coerced to map[string]any below if needed
-		},
-		"logLevel": gs.Controller.LogLevel,
-		"logDev":   gs.Controller.LogDev,
-		"aws": map[string]any{
-			"region": gs.AWS.Region,
-		},
+	if repo != "" || tag != "" {
+		image := map[string]any{}
+		if repo != "" {
+			image["repository"] = repo
+		}
+		if tag != "" {
+			image["tag"] = tag
+		}
+		values["image"] = image
 	}
 
-	// If annotations are provided in GraphSpec, copy them into the base map.
-	if len(gs.ServiceAccount.Annotations) > 0 {
-		ann := make(map[string]any, len(gs.ServiceAccount.Annotations))
-		for k, v := range gs.ServiceAccount.Annotations {
-			ann[k] = v
+	if name := strings.TrimSpace(gs.ServiceAccount.Name); name != "" || len(gs.ServiceAccount.Annotations) > 0 {
+		sa := map[string]any{}
+		if name != "" {
+			sa["name"] = name
 		}
-		base["serviceAccount"].(map[string]any)["annotations"] = ann
+		if len(gs.ServiceAccount.Annotations) > 0 {
+			ann := make(map[string]any, len(gs.ServiceAccount.Annotations))
+			for k, v := range gs.ServiceAccount.Annotations {
+				ann[k] = v
+			}
+			sa["annotations"] = ann
+		}
+		values["serviceAccount"] = sa
+	}
+
+	logLevel := strings.TrimSpace(gs.Controller.LogLevel)
+	logDev := strings.TrimSpace(gs.Controller.LogDev)
+	if logLevel != "" || logDev != "" {
+		logVals := map[string]any{}
+		if logLevel != "" {
+			logVals["level"] = logLevel
+		}
+		if logDev != "" {
+			if b, err := strconv.ParseBool(logDev); err == nil {
+				logVals["enable_development_logging"] = b
+			}
+		}
+		if len(logVals) > 0 {
+			values["log"] = logVals
+		}
+	}
+
+	if watch := strings.TrimSpace(gs.Controller.WatchNamespace); watch != "" {
+		values["watchNamespace"] = watch
+	}
+
+	awsVals := map[string]any{}
+	if region := strings.TrimSpace(gs.AWS.Region); region != "" {
+		awsVals["region"] = region
+	}
+	credVals := map[string]any{}
+	if secretName := strings.TrimSpace(gs.AWS.SecretName); secretName != "" {
+		credVals["secretName"] = secretName
+	}
+	if secretKey := strings.TrimSpace(gs.AWS.Credentials); secretKey != "" {
+		credVals["secretKey"] = secretKey
+	}
+	if profile := strings.TrimSpace(gs.AWS.Profile); profile != "" {
+		credVals["profile"] = profile
+	}
+	if len(credVals) > 0 {
+		awsVals["credentials"] = credVals
+	}
+	if len(awsVals) > 0 {
+		values["aws"] = awsVals
 	}
 
 	// Merge user-provided values by precedence.
@@ -154,13 +200,13 @@ func buildValues(gs config.GraphSpec) map[string]any {
 		// 1) Service-specific overlay wins first.
 		if v, ok := gs.Extras.Values[svcKey]; ok {
 			if mv, ok := v.(map[string]any); ok {
-				deepMerge(base, mv)
+				deepMerge(values, mv)
 			}
 		}
 		// 2) Shared "ack-chart" overlay wins next.
 		if v, ok := gs.Extras.Values["ack-chart"]; ok {
 			if mv, ok := v.(map[string]any); ok {
-				deepMerge(base, mv)
+				deepMerge(values, mv)
 			}
 		}
 		// 3) Remaining keys are merged into or assigned at their respective top-level keys.
@@ -169,54 +215,48 @@ func buildValues(gs config.GraphSpec) map[string]any {
 				continue
 			}
 			if mv, ok := v.(map[string]any); ok {
-				// If base already has a map for this key, merge into it. Otherwise clone mv into base.
-				if cur, ok := base[k].(map[string]any); ok {
+				// If values already has a map for this key, merge into it. Otherwise clone mv into values.
+				if cur, ok := values[k].(map[string]any); ok {
 					deepMerge(cur, mv)
-					base[k] = cur
+					values[k] = cur
 				} else {
-					base[k] = cloneMap(mv)
+					values[k] = cloneMap(mv)
 				}
 			} else {
 				// Scalars overwrite directly.
-				base[k] = v
+				values[k] = v
 			}
 		}
 	}
 
-	// Normalize serviceAccount type:
-	// If a chart expects serviceAccount to be a map, but a string name is supplied,
-	// convert the string form into a structured map with create:false and empty annotations.
-	if name, ok := base["serviceAccount"].(string); ok {
-		base["serviceAccount"] = map[string]any{
+	// Normalize serviceAccount type when passed as a string via overrides.
+	if name, ok := values["serviceAccount"].(string); ok {
+		values["serviceAccount"] = map[string]any{
 			"create":      false,
 			"name":        name,
 			"annotations": map[string]any{},
 		}
 	}
 
-	// Ensure serviceAccount is a map and annotations is map[string]any.
-	sa, ok := base["serviceAccount"].(map[string]any)
-	if !ok {
-		sa = map[string]any{"name": gs.ServiceAccount.Name}
-	}
-	base["serviceAccount"] = sa
-
-	switch a := sa["annotations"].(type) {
-	case map[string]any:
-		// already correct
-	case map[string]string:
-		// copy into map[string]any for consistent types in templates.
-		m := make(map[string]any, len(a))
-		for k, v := range a {
-			m[k] = v
+	if sa, ok := values["serviceAccount"].(map[string]any); ok {
+		switch a := sa["annotations"].(type) {
+		case map[string]any:
+			// already normalized
+		case map[string]string:
+			m := make(map[string]any, len(a))
+			for k, v := range a {
+				m[k] = v
+			}
+			sa["annotations"] = m
+		case nil:
+			sa["annotations"] = map[string]any{}
+		default:
+			sa["annotations"] = map[string]any{}
 		}
-		sa["annotations"] = m
-	default:
-		// ensure non-nil map
-		sa["annotations"] = map[string]any{}
+		values["serviceAccount"] = sa
 	}
 
-	return base
+	return values
 }
 
 // deepMerge recursively merges src into dst. For map values, it recurses. For scalars, src overwrites dst.
@@ -260,9 +300,13 @@ func SplitYAML(s string) []string {
 	parts := []string{}
 	for _, p := range strings.Split(s, "\n---") {
 		t := strings.TrimSpace(p)
-		if t == "" { continue }
+		if t == "" {
+			continue
+		}
 		// Ensure trailing newline for deterministic encoding later
-		if !strings.HasSuffix(t, "\n") { t += "\n" }
+		if !strings.HasSuffix(t, "\n") {
+			t += "\n"
+		}
 		parts = append(parts, t)
 	}
 	return parts

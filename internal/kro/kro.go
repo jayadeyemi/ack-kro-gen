@@ -12,7 +12,7 @@ import (
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 	"github.com/jayadeyemi/ack-kro-gen/internal/render"
-		"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 type RGD struct {
@@ -88,6 +88,7 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 	if err != nil {
 		return nil, err
 	}
+	crdKinds := extractCRDKinds(groups.CRDs)
 	ctrlResources, err := buildControllerResources(append(append(append(groups.Core, groups.RBAC...), groups.Deployments...), groups.Others...))
 	if err != nil {
 		return nil, err
@@ -95,7 +96,7 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 
 	// Build per-domain RGDs.
 	crdsRGD := MakeCRDsRGD(gs, serviceUpper, crdResources)
-	ctrlRGD := MakeCtrlRGD(gs, serviceUpper, ctrlResources)
+	ctrlRGD := MakeCtrlRGD(gs, serviceUpper, ctrlResources, crdKinds)
 
 	// Write files.
 	outAckDir := filepath.Join(absOutDir, "ack")
@@ -119,6 +120,36 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 		return nil, err
 	}
 	return []string{crdsPath, ctrlPath}, nil
+}
+
+func extractCRDKinds(list []classify.Obj) []string {
+	if len(list) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(list))
+	seen := map[string]struct{}{}
+	for _, o := range list {
+		var crd struct {
+			Spec struct {
+				Names struct {
+					Kind string `yaml:"kind"`
+				} `yaml:"names"`
+			} `yaml:"spec"`
+		}
+		if err := yaml.Unmarshal([]byte(o.RawYAML), &crd); err != nil {
+			continue
+		}
+		kind := strings.TrimSpace(crd.Spec.Names.Kind)
+		if kind == "" {
+			continue
+		}
+		if _, ok := seen[kind]; ok {
+			continue
+		}
+		seen[kind] = struct{}{}
+		out = append(out, kind)
+	}
+	return out
 }
 
 func writeYAML(path string, v any) error {

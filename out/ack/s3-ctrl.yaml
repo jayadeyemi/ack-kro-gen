@@ -8,16 +8,16 @@ spec:
     apiVersion: v1alpha1
     kind: S3controller
     spec:
-      name: string | default=${schema.spec.name}
-      namespace: string | default=${schema.spec.namespace}
+      name: string | default=ack-s3-controller
+      namespace: string | default=ack-system
       values:
         aws:
-          accountID: string | default=${schema.spec.aws.accountID}
+          accountID: string | default=""
           credentials:
-            profile: string | default=${schema.spec.aws.credentials.profile}
-            secretKey: string | default=${schema.spec.aws.credentials.secretKey}
-            secretName: string | default=${schema.spec.aws.credentials.secretName}
-          region: string | default=${schema.spec.aws.region}
+            profile: string | default=default
+            secretKey: string | default=credentials
+            secretName: string | default=""
+          region: string | default=""
         deletionPolicy: string | default=delete
         deployment:
           affinity: object | default={}
@@ -43,26 +43,26 @@ spec:
         image:
           pullPolicy: string | default=IfNotPresent
           pullSecrets: string[] | default=[]
-          repository: string | default=${schema.spec.image.repository}
-          tag: string | default=${schema.spec.image.tag}
+          repository: string | default=public.ecr.aws/aws-controllers-k8s/s3-controller
+          tag: string | default=1.1.1
         installScope: string | default=cluster
         leaderElection:
           enabled: boolean | default=false
-          namespace: string | default=${schema.spec.namespace}
+          namespace: string | default=ack-system
         log:
           enable_development_logging: boolean | default=false
-          level: string | default=${schema.spec.log.level}
+          level: string | default=info
         metrics:
           service:
-            create: boolean | default=true
+            create: boolean | default=false
             type: string | default=ClusterIP
         reconcile:
-          defaultMaxConcurrentSyncs: integer | default=5
-          defaultResyncPeriod: string | default=10h
+          defaultMaxConcurrentSyncs: integer | default=1
+          defaultResyncPeriod: integer | default=36000
           resourceMaxConcurrentSyncs: object | default={}
           resourceResyncPeriods: object | default={}
-          resources: string[] | default=[]
-        resourceTags: string[] | default=["services.k8s.aws/controller-version=${schema.spec.name}-${schema.spec.image.tag}","services.k8s.aws/namespace=${schema.spec.namespace}"]
+          resources: string[] | default=["AdoptedResource","Bucket","FieldExport"]
+        resourceTags: string[] | default=["services.k8s.aws/controller-version=ack-s3-controller-1.1.1","services.k8s.aws/namespace=ack-system"]
         resources:
           limits:
             cpu: string | default=100m
@@ -73,11 +73,10 @@ spec:
         role:
           labels: object | default={}
         serviceAccount:
-          annotations:
-            eks.amazonaws.com/role-arn: ${schema.spec.serviceAccount.annotations["eks.amazonaws.com/role-arn"]}
+          annotations: object | default={}
           create: boolean | default=true
-          name: string | default=${schema.spec.serviceAccount.name}
-        watchNamespace: string | default=${schema.spec.watchNamespace}
+          name: string | default=ack-s3-controller
+        watchNamespace: string | default=""
         watchSelectors: string | default=""
   resources:
     - id: graph-s3-crds
@@ -93,8 +92,7 @@ spec:
         apiVersion: v1
         kind: ServiceAccount
         metadata:
-          annotations:
-            eks.amazonaws.com/role-arn: ${schema.spec.serviceAccount.annotations["eks.amazonaws.com/role-arn"]}
+          annotations: null
           labels:
             app.kubernetes.io/instance: __KRO${schema.spec.name}_
             app.kubernetes.io/managed-by: Helm
@@ -102,7 +100,7 @@ spec:
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: ${schema.spec.serviceAccount.name}
+          name: ack-s3-controller
           namespace: __KRO${schema.spec.namespace}_
     - id: graph-clusterrole
       template:
@@ -219,7 +217,7 @@ spec:
           name: __KRO${schema.spec.name}_-s3-chart-namespaces-cache
         subjects:
           - kind: ServiceAccount
-            name: ${schema.spec.serviceAccount.name}
+            name: ack-s3-controller
             namespace: __KRO${schema.spec.namespace}_
     - id: graph-clusterrolebinding-2
       template:
@@ -240,7 +238,7 @@ spec:
           name: __KRO${schema.spec.name}_-s3-chart
         subjects:
           - kind: ServiceAccount
-            name: ${schema.spec.serviceAccount.name}
+            name: ack-s3-controller
             namespace: __KRO${schema.spec.namespace}_
     - id: graph-role
       template:
@@ -345,7 +343,7 @@ spec:
           name: __KRO${schema.spec.name}_-s3-chart-configmaps-cache
         subjects:
           - kind: ServiceAccount
-            name: ${schema.spec.serviceAccount.name}
+            name: ack-s3-controller
             namespace: __KRO${schema.spec.namespace}_
     - id: graph-deployment
       template:
@@ -408,7 +406,7 @@ spec:
                         fieldRef:
                           fieldPath: metadata.namespace
                     - name: AWS_REGION
-                      value: ${schema.spec.aws.region}
+                      value: null
                     - name: AWS_ENDPOINT_URL
                       value: ""
                     - name: ACK_WATCH_NAMESPACE
@@ -431,7 +429,7 @@ spec:
                       value: "1"
                     - name: FEATURE_GATES
                       value: ReadOnlyResources=true,ResourceAdoption=true,ServiceLevelCARM=false,TeamLevelCARM=false
-                  image: ${schema.spec.image.repository}:${schema.spec.image.tag}
+                  image: public.ecr.aws/aws-controllers-k8s/s3-controller:1.1.1
                   imagePullPolicy: IfNotPresent
                   livenessProbe:
                     httpGet:
@@ -473,5 +471,5 @@ spec:
               securityContext:
                 seccompProfile:
                   type: RuntimeDefault
-              serviceAccountName: ${schema.spec.serviceAccount.name}
+              serviceAccountName: ack-s3-controller
               terminationGracePeriodSeconds: 10
