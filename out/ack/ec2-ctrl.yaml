@@ -92,16 +92,16 @@ spec:
         apiVersion: v1
         kind: ServiceAccount
         metadata:
-          annotations: null
+          annotations: ${schema.spec.serviceAccount.annotations}
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
-          name: ack-ec2-controller
-          namespace: _KRO${schema.spec.namespace}
+          name: ${schema.spec.serviceAccount.name}
+          namespace: ${schema.spec.namespace}
     - id: graph-clusterrole
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -109,10 +109,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart
         rules:
@@ -217,10 +217,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-namespaces-cache
         rules:
@@ -239,10 +239,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-namespaces-cache
         roleRef:
@@ -251,8 +251,8 @@ spec:
           name: ${schema.spec.name}-ec2-chart-namespaces-cache
         subjects:
           - kind: ServiceAccount
-            name: ack-ec2-controller
-            namespace: _KRO${schema.spec.namespace}
+            name: ${schema.spec.serviceAccount.name}
+            namespace: ${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -260,10 +260,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-rolebinding
         roleRef:
@@ -272,8 +272,8 @@ spec:
           name: ${schema.spec.name}-ec2-chart
         subjects:
           - kind: ServiceAccount
-            name: ack-ec2-controller
-            namespace: _KRO${schema.spec.namespace}
+            name: ${schema.spec.serviceAccount.name}
+            namespace: ${schema.spec.namespace}
     - id: graph-role
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -281,13 +281,13 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-configmaps-cache
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         rules:
           - apiGroups:
               - ""
@@ -302,16 +302,15 @@ spec:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
         metadata:
-          creationTimestamp: null
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-reader
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         rules:
           - apiGroups:
               - ec2.services.k8s.aws
@@ -343,16 +342,15 @@ spec:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
         metadata:
-          creationTimestamp: null
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-writer
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         rules:
           - apiGroups:
               - ec2.services.k8s.aws
@@ -415,74 +413,77 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-configmaps-cache
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: Role
           name: ${schema.spec.name}-ec2-chart-configmaps-cache
         subjects:
           - kind: ServiceAccount
-            name: ack-ec2-controller
-            namespace: _KRO${schema.spec.namespace}
+            name: ${schema.spec.serviceAccount.name}
+            namespace: ${schema.spec.namespace}
     - id: graph-deployment
       template:
         apiVersion: apps/v1
         kind: Deployment
         metadata:
+          annotations: ${schema.spec.deployment.annotations}
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: ec2-chart
-            app.kubernetes.io/version: 1.7.0
-            helm.sh/chart: ec2-chart-1.7.0
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         spec:
-          replicas: 1
+          replicas: ${schema.spec.deployment.replicas}
           selector:
             matchLabels:
               app.kubernetes.io/instance: ${schema.spec.name}
               app.kubernetes.io/name: ec2-chart
           template:
             metadata:
+              annotations: ${schema.spec.deployment.annotations}
               labels:
                 app.kubernetes.io/instance: ${schema.spec.name}
-                app.kubernetes.io/managed-by: Helm
+                app.kubernetes.io/managed-by: Kro
                 app.kubernetes.io/name: ec2-chart
                 k8s-app: ec2-chart
             spec:
               containers:
                 - args:
                     - --aws-region
-                    - $(AWS_REGION)
+                    - ${schema.spec.aws.region}
                     - --aws-endpoint-url
-                    - $(AWS_ENDPOINT_URL)
+                    - ${schema.spec.aws.endpoint_url}
                     - --log-level
-                    - $(ACK_LOG_LEVEL)
+                    - ${schema.spec.log.level}
                     - --resource-tags
-                    - $(ACK_RESOURCE_TAGS)
+                    - ${schema.spec.resourceTags}
                     - --watch-namespace
-                    - $(ACK_WATCH_NAMESPACE)
+                    - ${schema.spec.watchNamespace}
                     - --watch-selectors
-                    - $(ACK_WATCH_SELECTORS)
+                    - ${schema.spec.watchSelectors}
                     - --reconcile-resources
-                    - $(RECONCILE_RESOURCES)
+                    - ${schema.spec.reconcile.resources}
                     - --deletion-policy
-                    - $(DELETION_POLICY)
+                    - ${schema.spec.deletionPolicy}
                     - --reconcile-default-resync-seconds
-                    - $(RECONCILE_DEFAULT_RESYNC_SECONDS)
+                    - ${schema.spec.reconcile.defaultResyncPeriod}
                     - --reconcile-default-max-concurrent-syncs
-                    - $(RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS)
+                    - ${schema.spec.reconcile.defaultMaxConcurrentSyncs}
                     - --feature-gates
-                    - $(FEATURE_GATES)
-                    - --enable-carm=true
+                    - ${schema.spec.featureGates}
+                    - --enable-carm
+                    - ${schema.spec.enableCARM}
                   command:
                     - ./bin/controller
                   env:
@@ -491,31 +492,31 @@ spec:
                         fieldRef:
                           fieldPath: metadata.namespace
                     - name: AWS_REGION
-                      value: null
+                      value: ${schema.spec.aws.region}
                     - name: AWS_ENDPOINT_URL
-                      value: ""
+                      value: ${schema.spec.aws.endpoint_url}
                     - name: ACK_WATCH_NAMESPACE
-                      value: null
+                      value: ${schema.spec.watchNamespace}
                     - name: ACK_WATCH_SELECTORS
-                      value: null
+                      value: ${schema.spec.watchSelectors}
                     - name: RECONCILE_RESOURCES
-                      value: CapacityReservation,DHCPOptions,ElasticIPAddress,FlowLog,Instance,InternetGateway,LaunchTemplate,NATGateway,NetworkACL,RouteTable,SecurityGroup,Subnet,TransitGateway,TransitGatewayVPCAttachment,VPC,VPCEndpoint,VPCEndpointServiceConfiguration,VPCPeeringConnection
+                      value: ${schema.spec.reconcile.resources}
                     - name: DELETION_POLICY
-                      value: delete
+                      value: ${schema.spec.deletionPolicy}
                     - name: LEADER_ELECTION_NAMESPACE
-                      value: ""
+                      value: ${schema.spec.leaderElection.namespace}
                     - name: ACK_LOG_LEVEL
-                      value: info
+                      value: ${schema.spec.log.level}
                     - name: ACK_RESOURCE_TAGS
-                      value: services.k8s.aws/controller-version=%CONTROLLER_SERVICE%-%CONTROLLER_VERSION%,services.k8s.aws/namespace=%K8S_NAMESPACE%
+                      value: ${schema.spec.resourceTags}
                     - name: RECONCILE_DEFAULT_RESYNC_SECONDS
-                      value: "36000"
+                      value: ${schema.spec.reconcile.defaultResyncPeriod}
                     - name: RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS
-                      value: "1"
+                      value: ${schema.spec.reconcile.defaultMaxConcurrentSyncs}
                     - name: FEATURE_GATES
-                      value: ReadOnlyResources=true,ResourceAdoption=true,ServiceLevelCARM=false,TeamLevelCARM=false
-                  image: public.ecr.aws/aws-controllers-k8s/ec2-controller:1.7.0
-                  imagePullPolicy: IfNotPresent
+                      value: ${schema.spec.featureGates}
+                  image: ${schema.spec.image.repository}:${schema.spec.image.tag}
+                  imagePullPolicy: ${schema.spec.image.pullPolicy}
                   livenessProbe:
                     httpGet:
                       path: /healthz
@@ -524,7 +525,7 @@ spec:
                     periodSeconds: 20
                   name: controller
                   ports:
-                    - containerPort: 8080
+                    - containerPort: ${schema.spec.deployment.containerPort}
                       name: http
                   readinessProbe:
                     httpGet:
@@ -534,11 +535,11 @@ spec:
                     periodSeconds: 10
                   resources:
                     limits:
-                      cpu: 100m
-                      memory: 128Mi
+                      cpu: ${schema.spec.resources.limits.cpu}
+                      memory: ${schema.spec.resources.limits.memory}
                     requests:
-                      cpu: 50m
-                      memory: 64Mi
+                      cpu: ${schema.spec.resources.requests.cpu}
+                      memory: ${schema.spec.resources.requests.memory}
                   securityContext:
                     allowPrivilegeEscalation: false
                     capabilities:
@@ -556,5 +557,5 @@ spec:
               securityContext:
                 seccompProfile:
                   type: RuntimeDefault
-              serviceAccountName: ack-ec2-controller
+              serviceAccountName: ${schema.spec.serviceAccount.name}
               terminationGracePeriodSeconds: 10

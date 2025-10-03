@@ -10,6 +10,10 @@ spec:
     spec:
       name: string | default=ack-s3-controller
       namespace: string | default=ack-system
+      resources:
+        - AdoptedResource
+        - Bucket
+        - FieldExport
       values:
         reconcile:
           resources: string[] | default=["AdoptedResource","Bucket","FieldExport"]

@@ -10,6 +10,19 @@ spec:
     spec:
       name: string | default=ack-rds-controller
       namespace: string | default=ack-system
+      resources:
+        - AdoptedResource
+        - DBClusterEndpoint
+        - DBClusterParameterGroup
+        - DBCluster
+        - DBClusterSnapshot
+        - DBInstance
+        - DBParameterGroup
+        - DBProxy
+        - DBSnapshot
+        - DBSubnetGroup
+        - FieldExport
+        - GlobalCluster
       values:
         reconcile:
           resources: string[] | default=["AdoptedResource","DBClusterEndpoint","DBClusterParameterGroup","DBCluster","DBClusterSnapshot","DBInstance","DBParameterGroup","DBProxy","DBSnapshot","DBSubnetGroup","FieldExport","GlobalCluster"]

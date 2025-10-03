@@ -57,6 +57,9 @@ func CRDSchema(gs config.GraphSpec, serviceUpper string, crdKinds []string) Sche
 		},
 	}
 	spec := buildSchemaSpec(gs, fmt.Sprintf("ack-%s-controller", gs.Service), values)
+	if len(crdKinds) > 0 {
+		spec.Resources = append([]string(nil), crdKinds...)
+	}
 	return Schema{
 		APIVersion: "v1alpha1",
 		Kind:       serviceUpper + "crdgraph",

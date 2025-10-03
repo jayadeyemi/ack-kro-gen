@@ -10,6 +10,27 @@ spec:
     spec:
       name: string | default=ack-ec2-controller
       namespace: string | default=ack-system
+      resources:
+        - AdoptedResource
+        - CapacityReservation
+        - DHCPOptions
+        - ElasticIPAddress
+        - FieldExport
+        - FlowLog
+        - Instance
+        - InternetGateway
+        - LaunchTemplate
+        - NATGateway
+        - NetworkACL
+        - RouteTable
+        - SecurityGroup
+        - Subnet
+        - TransitGateway
+        - TransitGatewayVPCAttachment
+        - VPCEndpoint
+        - VPCEndpointServiceConfiguration
+        - VPCPeeringConnection
+        - VPC
       values:
         reconcile:
           resources: string[] | default=["AdoptedResource","CapacityReservation","DHCPOptions","ElasticIPAddress","FieldExport","FlowLog","Instance","InternetGateway","LaunchTemplate","NATGateway","NetworkACL","RouteTable","SecurityGroup","Subnet","TransitGateway","TransitGatewayVPCAttachment","VPCEndpoint","VPCEndpointServiceConfiguration","VPCPeeringConnection","VPC"]

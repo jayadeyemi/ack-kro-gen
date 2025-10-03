@@ -42,6 +42,7 @@ type Schema struct {
 type SchemaSpec struct {
 	Name      string         `yaml:"name"`
 	Namespace string         `yaml:"namespace,omitempty"`
+	Resources []string       `yaml:"resources,omitempty"`
 	Values    map[string]any `yaml:"values,omitempty"`
 }
 

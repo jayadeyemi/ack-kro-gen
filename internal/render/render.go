@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
+	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 
 	// "gopkg.in/yaml.v3" // not needed here
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -51,7 +52,7 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 
 	// Emulate a Helm release for templating. These can be used by templates as .Release.*.
 	rel := chartutil.ReleaseOptions{
-		Name:      "_NAME_",      // placeholder; not persisted to outputs
+		Name:      "_NAME_",          // placeholder; not persisted to outputs
 		Namespace: "_KRO_NAMESPACE_", // placeholder; not persisted to outputs
 		IsInstall: true,
 		Revision:  1,
@@ -76,9 +77,13 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 	}
 
 	// Collect CRDs from crds/ directories. These are emitted verbatim and not templated by Helm.
+	runtimeSentinels := placeholders.BuildRuntimeSentinels(gs)
+
 	var crds []string
 	for _, obj := range ch.CRDObjects() {
-		crds = append(crds, string(obj.File.Data))
+		body := string(obj.File.Data)
+		body = placeholders.ApplyRuntimeSentinels(body, runtimeSentinels)
+		crds = append(crds, body)
 	}
 
 	// Keep only YAML artifacts from the rendered templates. Drop non-YAML files (helpers, txt, etc).
@@ -90,6 +95,7 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 		}
 		// Normalize path separators for deterministic keys on all OSes.
 		// Also trim and ensure a single trailing newline for clean diffs.
+		body = placeholders.ApplyRuntimeSentinels(body, runtimeSentinels)
 		out[filepath.ToSlash(name)] = strings.TrimSpace(body) + "\n"
 	}
 

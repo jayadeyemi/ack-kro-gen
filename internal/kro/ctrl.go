@@ -19,6 +19,7 @@ func buildControllerResources(list []classify.Obj) ([]Resource, error) {
 		if err := yaml.Unmarshal([]byte(o.RawYAML), &m); err != nil {
 			return nil, err
 		}
+		normalizeControllerResource(m)
 		id := controllerIDForKind(o.Kind)
 		seen[id]++
 		if seen[id] > 1 {
