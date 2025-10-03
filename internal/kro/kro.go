@@ -95,7 +95,7 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 	}
 
 	// Build per-domain RGDs.
-	crdsRGD := MakeCRDsRGD(gs, serviceUpper, crdResources)
+	crdsRGD := MakeCRDsRGD(gs, serviceUpper, crdResources, crdKinds)
 	ctrlRGD := MakeCtrlRGD(gs, serviceUpper, ctrlResources, crdKinds)
 
 	// Write files.

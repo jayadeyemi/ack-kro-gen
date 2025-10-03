@@ -66,8 +66,6 @@ var SentinelToSchema = map[string]string{
 
 // Map schema references -> concrete defaults for filling ${...} when writing defaults.
 var SchemaDefaults = map[string]string{
-	"${schema.spec.name}":                                 "_CONTROLLER_NAME_",
-	"${schema.spec.namespace}":                            "ack-system",
 	"${schema.spec.aws.accountID}":                        "",
 	"${schema.spec.aws.region}":                           "",
 	"${schema.spec.aws.endpoint_url}":                     "",
@@ -110,7 +108,6 @@ var SchemaDefaults = map[string]string{
 	"${schema.spec.reconcile.resourceResyncPeriods}":      "{}",
 	"${schema.spec.reconcile.defaultMaxConcurrentSyncs}":  "1",
 	"${schema.spec.reconcile.resourceMaxConcurrentSyncs}": "{}",
-	"${schema.spec.reconcile.resources}":                  "[]",
 	"${schema.spec.enableCARM}":                           "true",
 	"${schema.spec.featureGates}":                         `{"ServiceLevelCARM":false,"TeamLevelCARM":false,"ReadOnlyResources":true,"ResourceAdoption":true}`,
 	"${schema.spec.serviceAccount.create}":                "true",

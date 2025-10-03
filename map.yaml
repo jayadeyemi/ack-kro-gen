@@ -49,14 +49,18 @@ main:
           comment: "Normalizes arbitrary strings into lowercase, dash-safe identifiers with a fallback."
     kro.MakeCRDsRGD:
       comment: "Composes the CRD graph RGD shell and attaches generated CRD resources."
-      kro.newCRDSchema:
-        comment: "Declares the schema scaffold for CRD graphs referencing controller-generated names."
+      kro.CRDSchema:
+        comment: "Builds the CRD graph schema with shared defaults and reconcile resource placeholders."
+        kro.buildSchemaSpec:
+          comment: "Normalizes schema spec construction with placeholder-aware name and namespace defaults."
     kro.MakeCtrlRGD:
       comment: "Builds the controller RGD, prepending a graph-crd resource and embedding schema metadata."
       kro.makeGraphCRDItem:
         comment: "Produces the synthetic graph-crd resource inserted ahead of controller assets."
       kro.CtrlSchema:
         comment: "Defines controller graph schema metadata and injects computed values placeholders."
+        kro.buildSchemaSpec:
+          comment: "Normalizes schema spec construction with placeholder-aware name and namespace defaults."
         placeholders.ControllerValues:
           comment: "Synthesizes schema values defaults from GraphSpec data, chart defaults, and overrides."
           placeholders.controllerDefaults:

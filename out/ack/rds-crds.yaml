@@ -8,7 +8,11 @@ spec:
     apiVersion: v1alpha1
     kind: Rdscrdgraph
     spec:
-      name: ${schema.spec.name}
+      name: string | default=ack-rds-controller
+      namespace: string | default=ack-system
+      values:
+        reconcile:
+          resources: string[] | default=["AdoptedResource","DBClusterEndpoint","DBClusterParameterGroup","DBCluster","DBClusterSnapshot","DBInstance","DBParameterGroup","DBProxy","DBSnapshot","DBSubnetGroup","FieldExport","GlobalCluster"]
   resources:
     - id: graph-adoptedresources
       template:

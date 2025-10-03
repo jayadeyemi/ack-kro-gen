@@ -51,8 +51,8 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 
 	// Emulate a Helm release for templating. These can be used by templates as .Release.*.
 	rel := chartutil.ReleaseOptions{
-		Name:      "__KRO_NAME__",      // placeholder; not persisted to outputs
-		Namespace: "__KRO_NAMESPACE__", // placeholder; not persisted to outputs
+		Name:      "_NAME_",      // placeholder; not persisted to outputs
+		Namespace: "_KRO_NAMESPACE_", // placeholder; not persisted to outputs
 		IsInstall: true,
 		Revision:  1,
 	}

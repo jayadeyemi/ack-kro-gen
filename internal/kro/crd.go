@@ -6,6 +6,7 @@ import (
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/classify"
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
+	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 	"gopkg.in/yaml.v3"
 )
 
@@ -33,7 +34,7 @@ func buildCRDResources(list []classify.Obj) ([]Resource, error) {
 }
 
 // MakeCRDsRGD assembles the CRDs RGD for a service.
-func MakeCRDsRGD(gs config.GraphSpec, serviceUpper string, crdResources []Resource) RGD {
+func MakeCRDsRGD(gs config.GraphSpec, serviceUpper string, crdResources []Resource, crdKinds []string) RGD {
 	return RGD{
 		APIVersion: "kro.run/v1alpha1",
 		Kind:       "ResourceGraphDefinition",
@@ -42,18 +43,23 @@ func MakeCRDsRGD(gs config.GraphSpec, serviceUpper string, crdResources []Resour
 			Namespace: "kro",
 		},
 		Spec: RGDSpec{
-			Schema:    newCRDSchema(serviceUpper),
+			Schema:    CRDSchema(gs, serviceUpper, crdKinds),
 			Resources: crdResources,
 		},
 	}
 }
 
-func newCRDSchema(serviceUpper string) Schema {
+// CRDSchema assembles the schema for CRD graphs using shared placeholder handling.
+func CRDSchema(gs config.GraphSpec, serviceUpper string, crdKinds []string) Schema {
+	values := map[string]any{
+		"reconcile": map[string]any{
+			"resources": placeholders.StringSliceDefault(crdKinds),
+		},
+	}
+	spec := buildSchemaSpec(gs, fmt.Sprintf("ack-%s-controller", gs.Service), values)
 	return Schema{
 		APIVersion: "v1alpha1",
 		Kind:       serviceUpper + "crdgraph",
-		Spec: SchemaSpec{
-			Name: "${schema.spec.name}",
-		},
+		Spec:       spec,
 	}
 }

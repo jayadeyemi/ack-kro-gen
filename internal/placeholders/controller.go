@@ -56,7 +56,7 @@ func ControllerValues(gs config.GraphSpec, overrides map[string]any, crdKinds []
 	setNestedValue(values, []string{"iamRole", "roleDescription"}, StringDefault("", roleFallback))
 
 	if len(crdKinds) > 0 {
-		setNestedValue(values, []string{"reconcile", "resources"}, stringSliceDefault(crdKinds))
+		setNestedValue(values, []string{"reconcile", "resources"}, StringSliceDefault(crdKinds))
 	}
 
 	if len(overrides) > 0 {
@@ -377,7 +377,8 @@ func BoolDefault(v string, fallback bool) string {
 	return "boolean | default=false"
 }
 
-func stringSliceDefault(items []string) string {
+// StringSliceDefault formats a string slice default while de-duplicating entries.
+func StringSliceDefault(items []string) string {
 	if len(items) == 0 {
 		return `string[] | default=[]`
 	}

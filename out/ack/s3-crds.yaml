@@ -8,7 +8,11 @@ spec:
     apiVersion: v1alpha1
     kind: S3crdgraph
     spec:
-      name: ${schema.spec.name}
+      name: string | default=ack-s3-controller
+      namespace: string | default=ack-system
+      values:
+        reconcile:
+          resources: string[] | default=["AdoptedResource","Bucket","FieldExport"]
   resources:
     - id: graph-adoptedresources
       template:

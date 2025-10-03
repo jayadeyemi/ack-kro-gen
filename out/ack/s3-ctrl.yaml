@@ -94,27 +94,27 @@ spec:
         metadata:
           annotations: null
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
           name: ack-s3-controller
-          namespace: __KRO${schema.spec.namespace}_
+          namespace: _KRO${schema.spec.namespace}
     - id: graph-clusterrole
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRole
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart
+          name: ${schema.spec.name}-s3-chart
         rules:
           - apiGroups:
               - ""
@@ -182,13 +182,13 @@ spec:
         kind: ClusterRole
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-namespaces-cache
+          name: ${schema.spec.name}-s3-chart-namespaces-cache
         rules:
           - apiGroups:
               - ""
@@ -204,56 +204,56 @@ spec:
         kind: ClusterRoleBinding
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-namespaces-cache
+          name: ${schema.spec.name}-s3-chart-namespaces-cache
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
-          name: __KRO${schema.spec.name}_-s3-chart-namespaces-cache
+          name: ${schema.spec.name}-s3-chart-namespaces-cache
         subjects:
           - kind: ServiceAccount
             name: ack-s3-controller
-            namespace: __KRO${schema.spec.namespace}_
+            namespace: _KRO${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRoleBinding
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-rolebinding
+          name: ${schema.spec.name}-s3-chart-rolebinding
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: ClusterRole
-          name: __KRO${schema.spec.name}_-s3-chart
+          name: ${schema.spec.name}-s3-chart
         subjects:
           - kind: ServiceAccount
             name: ack-s3-controller
-            namespace: __KRO${schema.spec.namespace}_
+            namespace: _KRO${schema.spec.namespace}
     - id: graph-role
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-configmaps-cache
-          namespace: __KRO${schema.spec.namespace}_
+          name: ${schema.spec.name}-s3-chart-configmaps-cache
+          namespace: _KRO${schema.spec.namespace}
         rules:
           - apiGroups:
               - ""
@@ -270,14 +270,14 @@ spec:
         metadata:
           creationTimestamp: null
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-reader
-          namespace: __KRO${schema.spec.namespace}_
+          name: ${schema.spec.name}-s3-chart-reader
+          namespace: _KRO${schema.spec.namespace}
         rules:
           - apiGroups:
               - s3.services.k8s.aws
@@ -294,14 +294,14 @@ spec:
         metadata:
           creationTimestamp: null
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-writer
-          namespace: __KRO${schema.spec.namespace}_
+          name: ${schema.spec.name}-s3-chart-writer
+          namespace: _KRO${schema.spec.namespace}
         rules:
           - apiGroups:
               - s3.services.k8s.aws
@@ -329,46 +329,46 @@ spec:
         kind: RoleBinding
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart-configmaps-cache
-          namespace: __KRO${schema.spec.namespace}_
+          name: ${schema.spec.name}-s3-chart-configmaps-cache
+          namespace: _KRO${schema.spec.namespace}
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: Role
-          name: __KRO${schema.spec.name}_-s3-chart-configmaps-cache
+          name: ${schema.spec.name}-s3-chart-configmaps-cache
         subjects:
           - kind: ServiceAccount
             name: ack-s3-controller
-            namespace: __KRO${schema.spec.namespace}_
+            namespace: _KRO${schema.spec.namespace}
     - id: graph-deployment
       template:
         apiVersion: apps/v1
         kind: Deployment
         metadata:
           labels:
-            app.kubernetes.io/instance: __KRO${schema.spec.name}_
+            app.kubernetes.io/instance: ${schema.spec.name}
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: s3-chart
             app.kubernetes.io/version: 1.1.1
             helm.sh/chart: s3-chart-1.1.1
             k8s-app: s3-chart
-          name: __KRO${schema.spec.name}_-s3-chart
-          namespace: __KRO${schema.spec.namespace}_
+          name: ${schema.spec.name}-s3-chart
+          namespace: _KRO${schema.spec.namespace}
         spec:
           replicas: 1
           selector:
             matchLabels:
-              app.kubernetes.io/instance: __KRO${schema.spec.name}_
+              app.kubernetes.io/instance: ${schema.spec.name}
               app.kubernetes.io/name: s3-chart
           template:
             metadata:
               labels:
-                app.kubernetes.io/instance: __KRO${schema.spec.name}_
+                app.kubernetes.io/instance: ${schema.spec.name}
                 app.kubernetes.io/managed-by: Helm
                 app.kubernetes.io/name: s3-chart
                 k8s-app: s3-chart

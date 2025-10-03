@@ -57,14 +57,11 @@ func MakeCtrlRGD(gs config.GraphSpec, serviceUpper string, ctrlResources []Resou
 // CtrlSchema assembles the schema for controller graphs using shared placeholders.
 func CtrlSchema(gs config.GraphSpec, serviceUpper string, crdKinds []string) Schema {
 	values := placeholders.ControllerValues(gs, gs.Extras.Values, crdKinds)
+	spec := buildSchemaSpec(gs, fmt.Sprintf("ack-%s-controller", gs.Service), values)
 	return Schema{
 		APIVersion: "v1alpha1",
 		Kind:       serviceUpper + "controller",
-		Spec: SchemaSpec{
-			Name:      placeholders.StringDefault(gs.ReleaseName, fmt.Sprintf("ack-%s-controller", gs.Service)),
-			Namespace: placeholders.StringDefault(gs.Namespace, "ack-system"),
-			Values:    values,
-		},
+		Spec:       spec,
 	}
 }
 
