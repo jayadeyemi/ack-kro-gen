@@ -12,8 +12,7 @@ import (
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 	"github.com/jayadeyemi/ack-kro-gen/internal/render"
-	"github.com/jayadeyemi/ack-kro-gen/internal/util"
-	"gopkg.in/yaml.v3"
+		"gopkg.in/yaml.v3"
 )
 
 type RGD struct {
@@ -69,7 +68,7 @@ func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, e
 		objs = append(objs, o)
 	}
 	for _, body := range r.RenderedFiles {
-		for _, doc := range util.SplitYAML(body) {
+		for _, doc := range render.SplitYAML(body) {
 			if strings.TrimSpace(doc) == "" {
 				continue
 			}

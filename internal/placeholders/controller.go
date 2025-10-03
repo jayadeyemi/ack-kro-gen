@@ -251,24 +251,6 @@ func defaultImageTag(gs config.GraphSpec) string {
 	return strings.TrimSpace(gs.Version)
 }
 
-func rawValue(raw map[string]string, key string) string {
-	if raw == nil {
-		return ""
-	}
-	return raw[key]
-}
-
-func boolFallback(raw map[string]string, key string) bool {
-	val := strings.TrimSpace(strings.ToLower(rawValue(raw, key)))
-	switch val {
-	case "true":
-		return true
-	case "false":
-		return false
-	default:
-		return false
-	}
-}
 
 func schemaPathSegments(schemaRef string) []string {
 	ref := strings.TrimSpace(schemaRef)

@@ -8,6 +8,7 @@
 		"files.exclude": {
 			"**/.cache": true,
 			"ack-kro-gen": true,
+			".git": true
 		}
 	}
 
