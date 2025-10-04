@@ -84,23 +84,7 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string, chartDefaults map
 		setNestedValue(values, path, clone)
 	}
 
-	setSliceOfMaps := func(path []string, list []map[string]any, schemaPath string) {
-		if len(list) == 0 {
-			return
-		}
-		if slicesOfMapsEqual(list, defaults.sliceOfMaps(schemaPath)) {
-			return
-		}
-		clone := make([]map[string]any, len(list))
-		for i, item := range list {
-			elem := make(map[string]any, len(item))
-			for k, v := range item {
-				elem[k] = v
-			}
-			clone[i] = elem
-		}
-		setNestedValue(values, path, clone)
-	}
+
 
 	setStringMap := func(path []string, m map[string]string, schemaPath string) {
 		if len(m) == 0 {
@@ -164,15 +148,15 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string, chartDefaults map
 	setInt([]string{"deployment", "containerPort"}, gs.Deployment.ContainerPort, "deployment.containerPort")
 	setInt([]string{"deployment", "replicas"}, gs.Deployment.Replicas, "deployment.replicas")
 	setStringMap([]string{"deployment", "nodeSelector"}, gs.Deployment.NodeSelector, "deployment.nodeSelector")
-	setSliceOfMaps([]string{"deployment", "tolerations"}, gs.Deployment.Tolerations, "deployment.tolerations")
+	setStringSlice([]string{"deployment", "tolerations"}, gs.Deployment.Tolerations, "deployment.tolerations")
 	setAnyMap([]string{"deployment", "affinity"}, gs.Deployment.Affinity, "deployment.affinity")
 	setString([]string{"deployment", "priorityClassName"}, gs.Deployment.PriorityClassName, "deployment.priorityClassName")
 	setBool([]string{"deployment", "hostNetwork"}, gs.Deployment.HostNetwork, "deployment.hostNetwork")
 	setString([]string{"deployment", "dnsPolicy"}, gs.Deployment.DNSPolicy, "deployment.dnsPolicy")
 	setAnyMap([]string{"deployment", "strategy"}, gs.Deployment.Strategy, "deployment.strategy")
-	setSliceOfMaps([]string{"deployment", "extraVolumes"}, gs.Deployment.ExtraVolumes, "deployment.extraVolumes")
-	setSliceOfMaps([]string{"deployment", "extraVolumeMounts"}, gs.Deployment.ExtraVolumeMounts, "deployment.extraVolumeMounts")
-	setSliceOfMaps([]string{"deployment", "extraEnvVars"}, gs.Deployment.ExtraEnvVars, "deployment.extraEnvVars")
+	setStringSlice([]string{"deployment", "extraVolumes"}, gs.Deployment.ExtraVolumes, "deployment.extraVolumes")
+	setStringSlice([]string{"deployment", "extraVolumeMounts"}, gs.Deployment.ExtraVolumeMounts, "deployment.extraVolumeMounts")
+	setStringSlice([]string{"deployment", "extraEnvVars"}, gs.Deployment.ExtraEnvVars, "deployment.extraEnvVars")
 
 	// Reconcile behaviour.
 	setInt([]string{"reconcile", "defaultResyncPeriod"}, gs.Reconcile.DefaultResyncPeriod, "reconcile.defaultResyncPeriod")
@@ -239,9 +223,7 @@ var controllerDefaultsAllowedRoots = map[string]struct{}{
 	"image":          {},
 }
 
-var controllerDefaultsSkipPaths = map[string]struct{}{
-	"aws.endpoint_url": {},
-}
+var controllerDefaultsSkipPaths = map[string]struct{}{}
 
 func newSchemaDefaults(raw map[string]string) schemaDefaults {
 	out := make(map[string]string, len(raw))
@@ -465,37 +447,18 @@ func decodeKeySegment(seg string) string {
 	return strings.ReplaceAll(seg, encodedDot, ".")
 }
 
-func resolveControllerDefaults(gs config.ValuesSpec, chartDefaults map[string]any) map[string]string {
+func resolveControllerDefaults(_ config.ValuesSpec, chartDefaults map[string]any) map[string]string {
 	flattened := map[string]string{}
 	if chartDefaults != nil {
 		flattenChartDefaults(nil, chartDefaults, flattened)
 	}
 
-	resolved := map[string]string{}
+	resolved := make(map[string]string, len(flattened))
 	for key, val := range flattened {
-		normalized := normalizeChartTokens(strings.TrimSpace(val))
-		resolved[key] = strings.TrimSpace(resolveTokens(normalized, gs))
+		resolved[key] = strings.TrimSpace(val)
 	}
 
 	return resolved
-}
-
-func normalizeChartTokens(in string) string {
-	if in == "" {
-		return in
-	}
-	replacements := map[string]string{
-		"%CONTROLLER_SERVICE%": "_CONTROLLER_SERVICE_",
-		"%CONTROLLER_VERSION%": "_CONTROLLER_VERSION_",
-		"%K8S_NAMESPACE%":      "_NAMESPACE_",
-	}
-	out := in
-	for src, dst := range replacements {
-		if strings.Contains(out, src) {
-			out = strings.ReplaceAll(out, src, dst)
-		}
-	}
-	return out
 }
 
 func flattenChartDefaults(prefix []string, value any, out map[string]string) {
@@ -554,7 +517,6 @@ func resolveTokens(in string, gs config.ValuesSpec) string {
 		"_IMAGE_TAG_":          defaultImageTag(gs),
 		"_CONTROLLER_VERSION_": defaultImageTag(gs),
 		"_NAMESPACE_":          defaultNamespace(gs),
-		"_SERVICE_LOWER_":      strings.ToLower(strings.TrimSpace(gs.Service)),
 	}
 	for token, val := range replacements {
 		if val == "" {
@@ -713,24 +675,6 @@ func mapsJSONEqual(a, b map[string]any) bool {
 	return string(aj) == string(bj)
 }
 
-func slicesOfMapsEqual(a, b []map[string]any) bool {
-	if len(a) == 0 && len(b) == 0 {
-		return true
-	}
-	if len(a) == 0 || len(b) == 0 {
-		return false
-	}
-	aj, err := json.Marshal(a)
-	if err != nil {
-		return false
-	}
-	bj, err := json.Marshal(b)
-	if err != nil {
-		return false
-	}
-	return string(aj) == string(bj)
-}
-
 func formatSchemaDefault(path []string, raw string) string {
 	key := strings.Join(path, ".")
 	val := strings.TrimSpace(raw)
@@ -757,6 +701,7 @@ func formatSchemaDefault(path []string, raw string) string {
 			val = "[]"
 		}
 		return "string[] | default=" + val
+
 	case "object":
 		if val == "" {
 			val = "{}"
@@ -780,10 +725,11 @@ func typeForPath(path string) string {
 		return "boolean"
 	case strings.HasSuffix(lower, "replicas"), strings.HasSuffix(lower, "containerport"), strings.HasSuffix(lower, "defaultmaxconcurrentsyncs"), strings.HasSuffix(lower, "maxsessionduration"), strings.HasSuffix(lower, "defaultresyncperiod"):
 		return "integer"
-	case strings.HasSuffix(lower, "pullsecrets"), strings.HasSuffix(lower, "resourcetags"), strings.HasSuffix(lower, ".resources"):
+	case strings.HasSuffix(lower, "pullsecrets"), strings.HasSuffix(lower, "resourcetags"), strings.HasSuffix(lower, ".resources"), strings.HasSuffix(lower, "tolerations"), strings.Contains(lower, "extravolume"), strings.Contains(lower, "extraenv"):
 		return "string[]"
-	case strings.HasSuffix(lower, "labels"), strings.HasSuffix(lower, "annotations"), strings.HasSuffix(lower, "nodeselector"), strings.HasSuffix(lower, "tolerations"), strings.HasSuffix(lower, "affinity"),
-		strings.HasSuffix(lower, "strategy"), strings.Contains(lower, "extravolume"), strings.Contains(lower, "extraenv"), strings.Contains(lower, "resourceresyncperiods"),
+
+	case strings.HasSuffix(lower, "labels"), strings.HasSuffix(lower, "annotations"), strings.HasSuffix(lower, "nodeselector"), strings.HasSuffix(lower, "affinity"),
+		strings.HasSuffix(lower, "strategy"), strings.Contains(lower, "resourceresyncperiods"),
 		strings.Contains(lower, "resourcemaxconcurrentsyncs"), strings.HasSuffix(lower, "featuregates"):
 		return "object"
 	default:

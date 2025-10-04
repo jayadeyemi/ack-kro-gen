@@ -4,3 +4,6 @@ ack-kro-gen.txt
 **/*.log
 /.vscode
 *.code-workspace
+/.github/**/*.md
+
+**/reference

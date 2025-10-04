@@ -16,6 +16,7 @@ spec:
             profile: string | default=default
             secretKey: string | default=credentials
             secretName: string | default=""
+          endpoint_url: string | default=""
           region: string | default=""
         deletionPolicy: string | default=delete
         deployment:
@@ -23,9 +24,9 @@ spec:
           annotations: object | default={}
           containerPort: integer | default=8080
           dnsPolicy: string | default=ClusterFirst
-          extraEnvVars: object | default={}
-          extraVolumeMounts: object | default={}
-          extraVolumes: object | default={}
+          extraEnvVars: string[] | default=[]
+          extraVolumeMounts: string[] | default=[]
+          extraVolumes: string[] | default=[]
           hostNetwork: boolean | default=false
           labels: object | default={}
           nodeSelector:
@@ -33,7 +34,7 @@ spec:
           priorityClassName: string | default=""
           replicas: integer | default=1
           strategy: object | default={}
-          tolerations: object | default={}
+          tolerations: string[] | default=[]
         enableCARM: boolean | default=true
         featureGates:
           ReadOnlyResources: boolean | default=true
@@ -62,7 +63,7 @@ spec:
           resourceMaxConcurrentSyncs: object | default={}
           resourceResyncPeriods: object | default={}
           resources: string[] | default=["Bucket"]
-        resourceTags: string[] | default=["services.k8s.aws/controller-version=ack-s3-controller-1.1.1","services.k8s.aws/namespace=ack-system"]
+        resourceTags: string[] | default=["services.k8s.aws/controller-version=%CONTROLLER_SERVICE%-%CONTROLLER_VERSION%","services.k8s.aws/namespace=%K8S_NAMESPACE%"]
         resources:
           limits:
             cpu: string | default=100m

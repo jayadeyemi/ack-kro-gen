@@ -28,15 +28,15 @@ type Defaults struct {
 		Labels            map[string]any
 		Annotations       map[string]any
 		NodeSelector      map[string]string
-		Tolerations       []any
+		Tolerations       []string
 		Affinity          map[string]any
 		PriorityClassName string
 		HostNetwork       bool
 		DNSPolicy         string
 		Strategy          map[string]any
-		ExtraVolumes      []any
-		ExtraVolumeMounts []any
-		ExtraEnvVars      []any
+		ExtraVolumes      []string
+		ExtraVolumeMounts []string
+		ExtraEnvVars      []string
 	}
 	Resources struct {
 		Requests struct{ Memory, CPU string }

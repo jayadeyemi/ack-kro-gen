@@ -57,15 +57,15 @@ type DeploymentSpec struct {
 	ContainerPort     int               `yaml:"containerPort"`
 	Replicas          int               `yaml:"replicas"`
 	NodeSelector      map[string]string `yaml:"nodeSelector"`
-	Tolerations       []map[string]any  `yaml:"tolerations"`
+	Tolerations       []string          `yaml:"tolerations"`
 	Affinity          map[string]any    `yaml:"affinity"`
 	PriorityClassName string            `yaml:"priorityClassName"`
 	HostNetwork       bool              `yaml:"hostNetwork"`
 	DNSPolicy         string            `yaml:"dnsPolicy"`
 	Strategy          map[string]any    `yaml:"strategy"`
-	ExtraVolumes      []map[string]any  `yaml:"extraVolumes"`
-	ExtraVolumeMounts []map[string]any  `yaml:"extraVolumeMounts"`
-	ExtraEnvVars      []map[string]any  `yaml:"extraEnvVars"`
+	ExtraVolumes      []string          `yaml:"extraVolumes"`
+	ExtraVolumeMounts []string          `yaml:"extraVolumeMounts"`
+	ExtraEnvVars      []string          `yaml:"extraEnvVars"`
 }
 
 // role

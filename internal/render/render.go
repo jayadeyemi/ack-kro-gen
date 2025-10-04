@@ -303,9 +303,11 @@ func buildValues(gs config.ValuesSpec) map[string]any {
 		}
 		deployment["nodeSelector"] = ns
 	}
-	if len(gs.Deployment.Tolerations) > 0 {
-		deployment["tolerations"] = cloneSliceOfMaps(gs.Deployment.Tolerations)
+
+	if tol := cleanedStrings(gs.Deployment.Tolerations); len(tol) > 0 {
+		deployment["tolerations"] = tol
 	}
+
 	if len(gs.Deployment.Affinity) > 0 {
 		deployment["affinity"] = cloneMap(gs.Deployment.Affinity)
 	}
@@ -321,15 +323,16 @@ func buildValues(gs config.ValuesSpec) map[string]any {
 	if len(gs.Deployment.Strategy) > 0 {
 		deployment["strategy"] = cloneMap(gs.Deployment.Strategy)
 	}
-	if len(gs.Deployment.ExtraVolumes) > 0 {
-		deployment["extraVolumes"] = cloneSliceOfMaps(gs.Deployment.ExtraVolumes)
+	if extraVolumes := cleanedStrings(gs.Deployment.ExtraVolumes); len(extraVolumes) > 0 {
+		deployment["extraVolumes"] = extraVolumes
 	}
-	if len(gs.Deployment.ExtraVolumeMounts) > 0 {
-		deployment["extraVolumeMounts"] = cloneSliceOfMaps(gs.Deployment.ExtraVolumeMounts)
+	if extraVolumeMounts := cleanedStrings(gs.Deployment.ExtraVolumeMounts); len(extraVolumeMounts) > 0 {
+		deployment["extraVolumeMounts"] = extraVolumeMounts
 	}
-	if len(gs.Deployment.ExtraEnvVars) > 0 {
-		deployment["extraEnvVars"] = cloneSliceOfMaps(gs.Deployment.ExtraEnvVars)
+	if extraEnvVars := cleanedStrings(gs.Deployment.ExtraEnvVars); len(extraEnvVars) > 0 {
+		deployment["extraEnvVars"] = extraEnvVars
 	}
+
 	if len(deployment) > 0 {
 		values["deployment"] = deployment
 	}
@@ -461,6 +464,24 @@ func cloneSliceOfMaps(list []map[string]any) []map[string]any {
 		clone[i] = cloneMap(item)
 	}
 	return clone
+}
+
+func cleanedStrings(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // SplitYAML is re-exported for tests and callers that need to split multi-doc YAML strings.
