@@ -19,6 +19,7 @@ func buildControllerResources(list []classify.Obj) ([]Resource, error) {
 		if err := yaml.Unmarshal([]byte(o.RawYAML), &m); err != nil {
 			return nil, err
 		}
+		normalizeControllerResource(m)
 		id := controllerIDForKind(o.Kind)
 		seen[id]++
 		if seen[id] > 1 {
@@ -35,7 +36,7 @@ func controllerIDForKind(kind string) string {
 }
 
 // MakeCtrlRGD assembles the controller RGD for a service.
-func MakeCtrlRGD(gs config.GraphSpec, serviceUpper string, ctrlResources []Resource, crdKinds []string) RGD {
+func MakeCtrlRGD(gs config.ValuesSpec, serviceUpper string, ctrlResources []Resource, crdKinds []string) RGD {
 	// Add a graph-crd item as the first resource in the controller graph.
 	ctrlResources = append([]Resource{makeGraphCRDItem(gs.Service, serviceUpper)}, ctrlResources...)
 
@@ -55,8 +56,9 @@ func MakeCtrlRGD(gs config.GraphSpec, serviceUpper string, ctrlResources []Resou
 }
 
 // CtrlSchema assembles the schema for controller graphs using shared placeholders.
-func CtrlSchema(gs config.GraphSpec, serviceUpper string, crdKinds []string) Schema {
-	values := placeholders.ControllerValues(gs, gs.Extras.Values, crdKinds)
+
+func CtrlSchema(gs config.ValuesSpec, serviceUpper string, crdKinds []string) Schema {
+	values := placeholders.ControllerValues(gs, crdKinds)
 	spec := buildSchemaSpec(gs, fmt.Sprintf("ack-%s-controller", gs.Service), values)
 	return Schema{
 		APIVersion: "v1alpha1",

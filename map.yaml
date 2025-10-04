@@ -17,13 +17,11 @@ main:
   render.RenderChart:
     comment: "Loads a cached Helm chart, renders templates with computed values, and returns manifests plus CRDs."
     render.buildValues:
-      comment: "Builds the Helm values map from GraphSpec, applying override precedence and normalizing serviceAccount data."
-      render.deepMerge:
-        comment: "Recursively merges source maps into destination maps for nested overrides."
-        render.cloneMap:
-          comment: "Deep-copies map[string]any trees to avoid shared references during merges."
+      comment: "Builds the Helm values map from ValuesSpec, normalizing nested maps and slices for Helm consumption."
       render.cloneMap:
-        comment: "Deep-copies map[string]any trees to avoid shared references during merges."
+        comment: "Deep-copies map[string]any trees to avoid shared references."
+      render.cloneSliceOfMaps:
+        comment: "Produces deep copies of []map[string]any lists for safe reuse."
   render.SplitYAML:
     comment: "Splits a multi-document YAML string into trimmed docs with trailing newlines."
 
@@ -62,7 +60,7 @@ main:
         kro.buildSchemaSpec:
           comment: "Normalizes schema spec construction with placeholder-aware name and namespace defaults."
         placeholders.ControllerValues:
-          comment: "Synthesizes schema values defaults from GraphSpec data, chart defaults, and overrides."
+          comment: "Synthesizes schema values defaults from GraphSpec inputs, chart defaults, and discovered CRDs."
           placeholders.controllerDefaults:
             comment: "Derives allowable schema keys and formatted defaults from flattened chart defaults or templates."
             placeholders.resolveControllerDefaults:
@@ -95,12 +93,16 @@ main:
             comment: "Looks up a schema default string for a dotted path."
           placeholders.schemaDefaultBool:
             comment: "Evaluates schema default strings as booleans."
+          placeholders.schemaDefaultInt:
+            comment: "Parses schema default strings as integers for comparison."
+          placeholders.schemaFeatureGateDefaults:
+            comment: "Parses the feature gate default object into Go booleans for diffing overrides."
           placeholders.BoolDefault:
             comment: "Formats boolean defaults while honoring explicit overrides."
-          placeholders.DefaultRepo:
-            comment: "Provides the fallback ACK controller image repository for a service."
-          placeholders.DefaultTag:
-            comment: "Chooses the default controller image tag when unspecified."
+          placeholders.IntDefault:
+            comment: "Formats integer defaults with type annotations."
+          placeholders.StringSliceDefault:
+            comment: "Formats string slice defaults while removing blanks and duplicates."
           placeholders.MapOrDefault:
             comment: "Converts annotation maps into map[string]any or an empty object default marker."
         placeholders.StringDefault:

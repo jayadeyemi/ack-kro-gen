@@ -10,46 +10,132 @@ import (
 )
 
 type Root struct {
-	Graphs []GraphSpec `yaml:"graphs"`
+	Graphs []ValuesSpec `yaml:"graphs"`
 }
 
-type GraphSpec struct {
-	Service        string         `yaml:"service"`
-	Version        string         `yaml:"version"`
-	ReleaseName    string         `yaml:"releaseName"`
-	Namespace      string         `yaml:"namespace"`
-	AWS            AWSSpec        `yaml:"aws"`
-	Image          ImageSpec      `yaml:"image"`
-	ServiceAccount SASpec         `yaml:"serviceAccount"`
-	Controller     ControllerSpec `yaml:"controller"`
-	Extras         ExtrasSpec     `yaml:"extras"`
+type ValuesSpec struct {
+	// Graph.yaml fields
+	Service     string `yaml:"service"`
+	Version     string `yaml:"version"`
+	Namespace   string `yaml:"namespace"`
+	ReleaseName string `yaml:"releaseName"`
+
+	// Helm chart values fields
+	Image            ImageSpec          `yaml:"image"`
+	NameOverride     string             `yaml:"nameOverride"`
+	FullnameOverride string             `yaml:"fullnameOverride"`
+	Deployment       DeploymentSpec     `yaml:"deployment"`
+	Role             RoleSpec           `yaml:"role"`
+	Metrics          MetricsSpec        `yaml:"metrics"`
+	Resources        ResourcesSpec      `yaml:"resources"`
+	AWS              AWSSpec            `yaml:"aws"`
+	Log              LogSpec            `yaml:"log"`
+	InstallScope     string             `yaml:"installScope"`
+	WatchNamespace   string             `yaml:"watchNamespace"`
+	WatchSelectors   string             `yaml:"watchSelectors"`
+	ResourceTags     []string           `yaml:"resourceTags"`
+	DeletionPolicy   string             `yaml:"deletionPolicy"`
+	Reconcile        ReconcileSpec      `yaml:"reconcile"`
+	ServiceAccount   ServiceAccountSpec `yaml:"serviceAccount"`
+	LeaderElection   LeaderElectionSpec `yaml:"leaderElection"`
+	EnableCARM       bool               `yaml:"enableCARM"`
+	FeatureGates     FeatureGatesSpec   `yaml:"featureGates"`
 }
 
+// image
 type ImageSpec struct {
-	Repository string `yaml:"repository"`
-	Tag        string `yaml:"tag"`
+	Repository  string   `yaml:"repository"`
+	Tag         string   `yaml:"tag"`
+	PullPolicy  string   `yaml:"pullPolicy"`
+	PullSecrets []string `yaml:"pullSecrets"`
 }
 
-type SASpec struct {
+// deployment
+type DeploymentSpec struct {
+	Annotations       map[string]string `yaml:"annotations"`
+	Labels            map[string]string `yaml:"labels"`
+	ContainerPort     int               `yaml:"containerPort"`
+	Replicas          int               `yaml:"replicas"`
+	NodeSelector      map[string]string `yaml:"nodeSelector"`
+	Tolerations       []map[string]any  `yaml:"tolerations"`
+	Affinity          map[string]any    `yaml:"affinity"`
+	PriorityClassName string            `yaml:"priorityClassName"`
+	HostNetwork       bool              `yaml:"hostNetwork"`
+	DNSPolicy         string            `yaml:"dnsPolicy"`
+	Strategy          map[string]any    `yaml:"strategy"`
+	ExtraVolumes      []map[string]any  `yaml:"extraVolumes"`
+	ExtraVolumeMounts []map[string]any  `yaml:"extraVolumeMounts"`
+	ExtraEnvVars      []map[string]any  `yaml:"extraEnvVars"`
+}
+
+// role
+type RoleSpec struct {
+	Labels map[string]string `yaml:"labels"`
+}
+
+// metrics
+type MetricsSpec struct {
+	Service MetricsServiceSpec `yaml:"service"`
+}
+
+type MetricsServiceSpec struct {
+	Create bool   `yaml:"create"`
+	Type   string `yaml:"type"`
+}
+
+// resources
+type ResourcesSpec struct {
+	Requests map[string]string `yaml:"requests"`
+	Limits   map[string]string `yaml:"limits"`
+}
+
+// aws
+type AWSSpec struct {
+	Region      string             `yaml:"region"`
+	EndpointURL string             `yaml:"endpoint_url"`
+	Credentials AWSCredentialsSpec `yaml:"credentials"`
+}
+
+type AWSCredentialsSpec struct {
+	SecretName string `yaml:"secretName"`
+	SecretKey  string `yaml:"secretKey"`
+	Profile    string `yaml:"profile"`
+}
+
+// log
+type LogSpec struct {
+	EnableDevelopmentLogging bool   `yaml:"enable_development_logging"`
+	Level                    string `yaml:"level"`
+}
+
+// reconcile
+type ReconcileSpec struct {
+	DefaultResyncPeriod        int            `yaml:"defaultResyncPeriod"`
+	ResourceResyncPeriods      map[string]int `yaml:"resourceResyncPeriods"`
+	DefaultMaxConcurrentSyncs  int            `yaml:"defaultMaxConcurrentSyncs"`
+	ResourceMaxConcurrentSyncs map[string]int `yaml:"resourceMaxConcurrentSyncs"`
+	Resources                  []string       `yaml:"resources"`
+}
+
+// serviceAccount
+type ServiceAccountSpec struct {
+	Create      bool              `yaml:"create"`
 	Name        string            `yaml:"name"`
 	Annotations map[string]string `yaml:"annotations"`
 }
 
-type AWSSpec struct {
-	Region      string `yaml:"region"`
-	AccountID   string `yaml:"accountID"`
-	Credentials string `yaml:"credentials"`
-	SecretName  string `yaml:"secretName"`
-	Profile     string `yaml:"profile"`
-}
-type ControllerSpec struct {
-	LogLevel       string `yaml:"logLevel"`
-	LogDev         string `yaml:"logDev"`
-	WatchNamespace string `yaml:"watchNamespace"`
+// leaderElection
+type LeaderElectionSpec struct {
+	Enabled   bool   `yaml:"enabled"`
+	Namespace string `yaml:"namespace"`
 }
 
-type ExtrasSpec struct {
-	Values map[string]any `yaml:"values"`
+// featureGates
+type FeatureGatesSpec struct {
+	ServiceLevelCARM  bool `yaml:"ServiceLevelCARM"`
+	TeamLevelCARM     bool `yaml:"TeamLevelCARM"`
+	ReadOnlyResources bool `yaml:"ReadOnlyResources"`
+	ResourceAdoption  bool `yaml:"ResourceAdoption"`
 }
 
 func Load(path string) (*Root, error) {
@@ -64,8 +150,52 @@ func Load(path string) (*Root, error) {
 	if len(r.Graphs) == 0 {
 		return nil, errors.New("graphs: at least one service is required")
 	}
+	var rawRoot struct {
+		Graphs []map[string]any `yaml:"graphs"`
+	}
+	if err := yaml.Unmarshal(b, &rawRoot); err != nil {
+		return nil, err
+	}
+
+	getMap := func(m map[string]any, key string) (map[string]any, bool) {
+		if m == nil {
+			return nil, false
+		}
+		raw, ok := m[key]
+		if !ok {
+			return nil, false
+		}
+		switch typed := raw.(type) {
+		case map[string]any:
+			return typed, true
+		case map[interface{}]any:
+			converted := make(map[string]any, len(typed))
+			for k, v := range typed {
+				ks, ok := k.(string)
+				if !ok {
+					continue
+				}
+				converted[ks] = v
+			}
+			return converted, true
+		default:
+			return nil, false
+		}
+	}
+
+	hasKey := func(m map[string]any, key string) bool {
+		if m == nil {
+			return false
+		}
+		_, ok := m[key]
+		return ok
+	}
 	for i := range r.Graphs {
 		g := &r.Graphs[i]
+		var raw map[string]any
+		if i < len(rawRoot.Graphs) {
+			raw = rawRoot.Graphs[i]
+		}
 
 		g.Service = strings.TrimSpace(g.Service)
 		if g.Service == "" {
@@ -85,20 +215,36 @@ func Load(path string) (*Root, error) {
 			)
 		}
 
-		g.Image.Tag = strings.TrimSpace(g.Image.Tag)
-		if g.Image.Tag == "" {
-			g.Image.Tag = g.Version
+		if raw == nil {
+			g.ServiceAccount.Create = true
+			g.EnableCARM = true
+			g.FeatureGates.ReadOnlyResources = true
+			g.FeatureGates.ResourceAdoption = true
+			continue
 		}
 
-		g.ReleaseName = strings.TrimSpace(g.ReleaseName)
-		if g.ReleaseName == "" {
-			g.ReleaseName = fmt.Sprintf("ack-%s-controller", strings.ToLower(g.Service))
+		saMap, ok := getMap(raw, "serviceAccount")
+		if !ok || !hasKey(saMap, "create") {
+			g.ServiceAccount.Create = true
 		}
 
-		g.Namespace = strings.TrimSpace(g.Namespace)
-		if g.Namespace == "" {
-			g.Namespace = "ack-system"
+		if !hasKey(raw, "enableCARM") {
+			g.EnableCARM = true
 		}
+
+		fgMap, ok := getMap(raw, "featureGates")
+		if !ok {
+			g.FeatureGates.ReadOnlyResources = true
+			g.FeatureGates.ResourceAdoption = true
+			continue
+		}
+		if !hasKey(fgMap, "ReadOnlyResources") {
+			g.FeatureGates.ReadOnlyResources = true
+		}
+		if !hasKey(fgMap, "ResourceAdoption") {
+			g.FeatureGates.ResourceAdoption = true
+		}
+
 	}
 	return &r, nil
 }

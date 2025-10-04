@@ -4,7 +4,6 @@ package placeholders
 var SentinelToSchema = map[string]string{
 	"_NAME_":                        "${schema.spec.name}",
 	"_NAMESPACE_":                   "${schema.spec.namespace}",
-	"_AWS_ACCOUNT_ID_":              "${schema.spec.aws.accountID}",
 	"_AWS_REGION_":                  "${schema.spec.aws.region}",
 	"_AWS_ENDPOINT_URL_":            "${schema.spec.aws.endpoint_url}",
 	"_AWS_SECRET_NAME_":             "${schema.spec.aws.credentials.secretName}",
@@ -66,7 +65,6 @@ var SentinelToSchema = map[string]string{
 
 // Map schema references -> concrete defaults for filling ${...} when writing defaults.
 var SchemaDefaults = map[string]string{
-	"${schema.spec.aws.accountID}":                        "",
 	"${schema.spec.aws.region}":                           "",
 	"${schema.spec.aws.endpoint_url}":                     "",
 	"${schema.spec.aws.credentials.secretName}":           "",
