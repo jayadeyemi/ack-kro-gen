@@ -52,7 +52,7 @@ type Resource struct {
 }
 
 // EmitRGDs orchestrates parse → classify → build → write.
-func EmitRGDs(gs config.GraphSpec, r *render.Result, outDir string) ([]string, error) {
+func EmitRGDs(gs config.ValuesSpec, r *render.Result, outDir string) ([]string, error) {
 	absOutDir, err := filepath.Abs(outDir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve output dir: %w", err)

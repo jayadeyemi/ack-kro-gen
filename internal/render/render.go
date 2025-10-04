@@ -17,7 +17,6 @@ import (
 	// "maps" // optional in newer Go for map utilities
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
@@ -39,15 +38,15 @@ type Result struct {
 }
 
 // RenderChart loads a Helm chart archive (or directory), renders templates with values derived from
-// the provided GraphSpec, and splits outputs into CRDs and controller manifests.
-func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSpec) (*Result, error) {
+// the provided ValuesSpec, and splits outputs into CRDs and controller manifests.
+func RenderChart(ctx context.Context, chartArchivePath string, gs config.ValuesSpec) (*Result, error) {
 	// Load the chart from a .tgz path or directory. No network access here.
 	ch, err := loader.Load(chartArchivePath)
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %w", err)
 	}
 
-	// Build the values map to feed into Helm's renderer based on GraphSpec.
+	// Build the values map to feed into Helm's renderer based on ValuesSpec.
 	vals := buildValues(gs)
 
 	// Emulate a Helm release for templating. These can be used by templates as .Release.*.
@@ -115,81 +114,108 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.GraphSp
 	return &Result{RenderedFiles: ordered, CRDs: crds}, nil
 }
 
-// buildValues constructs the Helm values map from GraphSpec, then merges in optional overrides.
-// Precedence (highest to lower within Extras.Values):
-//  1. <service>-chart (e.g., "s3-chart")
-//  2. "ack-chart" (shared defaults across ACK controllers)
-//  3. any other top-level keys, merged into the base under their own key
-//
-// Base seeds image, serviceAccount, log flags, and AWS region.
-func buildValues(gs config.GraphSpec) map[string]any {
+// buildValues constructs the Helm values map consumed by the ACK controller chart
+// using only the ValuesSpec input. Callers layer any additional overrides before
+// invoking Helm.
+func buildValues(gs config.ValuesSpec) map[string]any {
 	values := map[string]any{}
 
-	repo := strings.TrimSpace(gs.Image.Repository)
+	// Image settings.
+	image := map[string]any{}
+	if repo := strings.TrimSpace(gs.Image.Repository); repo != "" {
+		image["repository"] = repo
+	}
 	tag := strings.TrimSpace(gs.Image.Tag)
 	if tag == "" {
 		tag = strings.TrimSpace(gs.Version)
 	}
-
-	if repo != "" || tag != "" {
-		image := map[string]any{}
-		if repo != "" {
-			image["repository"] = repo
+	if tag != "" {
+		image["tag"] = tag
+	}
+	if policy := strings.TrimSpace(gs.Image.PullPolicy); policy != "" {
+		image["pullPolicy"] = policy
+	}
+	if len(gs.Image.PullSecrets) > 0 {
+		secrets := make([]string, 0, len(gs.Image.PullSecrets))
+		for _, s := range gs.Image.PullSecrets {
+			if trimmed := strings.TrimSpace(s); trimmed != "" {
+				secrets = append(secrets, trimmed)
+			}
 		}
-		if tag != "" {
-			image["tag"] = tag
+		if len(secrets) > 0 {
+			image["pullSecrets"] = secrets
 		}
+	}
+	if len(image) > 0 {
 		values["image"] = image
 	}
 
-	if name := strings.TrimSpace(gs.ServiceAccount.Name); name != "" || len(gs.ServiceAccount.Annotations) > 0 {
-		sa := map[string]any{}
-		if name != "" {
-			sa["name"] = name
+	// Chart name overrides.
+	if v := strings.TrimSpace(gs.NameOverride); v != "" {
+		values["nameOverride"] = v
+	}
+	if v := strings.TrimSpace(gs.FullnameOverride); v != "" {
+		values["fullnameOverride"] = v
+	}
+
+	// ServiceAccount configuration.
+	sa := map[string]any{}
+	if !gs.ServiceAccount.Create {
+		sa["create"] = false
+	}
+	if name := strings.TrimSpace(gs.ServiceAccount.Name); name != "" {
+		sa["name"] = name
+	}
+	if len(gs.ServiceAccount.Annotations) > 0 {
+		ann := make(map[string]any, len(gs.ServiceAccount.Annotations))
+		for k, v := range gs.ServiceAccount.Annotations {
+			ann[k] = v
 		}
-		if len(gs.ServiceAccount.Annotations) > 0 {
-			ann := make(map[string]any, len(gs.ServiceAccount.Annotations))
-			for k, v := range gs.ServiceAccount.Annotations {
-				ann[k] = v
-			}
-			sa["annotations"] = ann
-		}
+		sa["annotations"] = ann
+	}
+	if len(sa) > 0 {
 		values["serviceAccount"] = sa
 	}
 
-	logLevel := strings.TrimSpace(gs.Controller.LogLevel)
-	logDev := strings.TrimSpace(gs.Controller.LogDev)
-	if logLevel != "" || logDev != "" {
-		logVals := map[string]any{}
-		if logLevel != "" {
-			logVals["level"] = logLevel
-		}
-		if logDev != "" {
-			if b, err := strconv.ParseBool(logDev); err == nil {
-				logVals["enable_development_logging"] = b
-			}
-		}
-		if len(logVals) > 0 {
-			values["log"] = logVals
-		}
+	// Logging configuration.
+	logVals := map[string]any{}
+	if level := strings.TrimSpace(gs.Log.Level); level != "" {
+		logVals["level"] = level
+	}
+	if gs.Log.EnableDevelopmentLogging {
+		logVals["enable_development_logging"] = true
+	}
+	if len(logVals) > 0 {
+		values["log"] = logVals
 	}
 
-	if watch := strings.TrimSpace(gs.Controller.WatchNamespace); watch != "" {
+	// Deployment namespace scoping.
+	if watch := strings.TrimSpace(gs.WatchNamespace); watch != "" {
 		values["watchNamespace"] = watch
 	}
+	if selectors := strings.TrimSpace(gs.WatchSelectors); selectors != "" {
+		values["watchSelectors"] = selectors
+	}
+	if scope := strings.TrimSpace(gs.InstallScope); scope != "" {
+		values["installScope"] = scope
+	}
 
+	// AWS configuration (region, endpoint, credentials).
 	awsVals := map[string]any{}
 	if region := strings.TrimSpace(gs.AWS.Region); region != "" {
 		awsVals["region"] = region
 	}
+	if endpoint := strings.TrimSpace(gs.AWS.EndpointURL); endpoint != "" {
+		awsVals["endpoint_url"] = endpoint
+	}
 	credVals := map[string]any{}
-	if secretName := strings.TrimSpace(gs.AWS.SecretName); secretName != "" {
+	if secretName := strings.TrimSpace(gs.AWS.Credentials.SecretName); secretName != "" {
 		credVals["secretName"] = secretName
 	}
-	if secretKey := strings.TrimSpace(gs.AWS.Credentials); secretKey != "" {
+	if secretKey := strings.TrimSpace(gs.AWS.Credentials.SecretKey); secretKey != "" {
 		credVals["secretKey"] = secretKey
 	}
-	if profile := strings.TrimSpace(gs.AWS.Profile); profile != "" {
+	if profile := strings.TrimSpace(gs.AWS.Credentials.Profile); profile != "" {
 		credVals["profile"] = profile
 	}
 	if len(credVals) > 0 {
@@ -199,67 +225,192 @@ func buildValues(gs config.GraphSpec) map[string]any {
 		values["aws"] = awsVals
 	}
 
-	// Merge user-provided values by precedence.
-	if gs.Extras.Values != nil {
-		svcKey := gs.Service + "-chart"
-
-		// 1) Service-specific overlay wins first.
-		if v, ok := gs.Extras.Values[svcKey]; ok {
-			if mv, ok := v.(map[string]any); ok {
-				deepMerge(values, mv)
-			}
-		}
-		// 2) Shared "ack-chart" overlay wins next.
-		if v, ok := gs.Extras.Values["ack-chart"]; ok {
-			if mv, ok := v.(map[string]any); ok {
-				deepMerge(values, mv)
-			}
-		}
-		// 3) Remaining keys are merged into or assigned at their respective top-level keys.
-		for k, v := range gs.Extras.Values {
-			if k == svcKey || k == "ack-chart" {
-				continue
-			}
-			if mv, ok := v.(map[string]any); ok {
-				// If values already has a map for this key, merge into it. Otherwise clone mv into values.
-				if cur, ok := values[k].(map[string]any); ok {
-					deepMerge(cur, mv)
-					values[k] = cur
-				} else {
-					values[k] = cloneMap(mv)
-				}
-			} else {
-				// Scalars overwrite directly.
-				values[k] = v
-			}
-		}
+	// Metrics service configuration.
+	metrics := map[string]any{}
+	serviceMetrics := map[string]any{}
+	if gs.Metrics.Service.Create {
+		serviceMetrics["create"] = true
+	}
+	if svcType := strings.TrimSpace(gs.Metrics.Service.Type); svcType != "" {
+		serviceMetrics["type"] = svcType
+	}
+	if len(serviceMetrics) > 0 {
+		metrics["service"] = serviceMetrics
+	}
+	if len(metrics) > 0 {
+		values["metrics"] = metrics
 	}
 
-	// Normalize serviceAccount type when passed as a string via overrides.
-	if name, ok := values["serviceAccount"].(string); ok {
-		values["serviceAccount"] = map[string]any{
-			"create":      false,
-			"name":        name,
-			"annotations": map[string]any{},
+	// Resources (requests/limits).
+	resourceVals := map[string]any{}
+	if len(gs.Resources.Requests) > 0 {
+		reqs := make(map[string]any, len(gs.Resources.Requests))
+		for k, v := range gs.Resources.Requests {
+			reqs[k] = strings.TrimSpace(v)
 		}
+		resourceVals["requests"] = reqs
+	}
+	if len(gs.Resources.Limits) > 0 {
+		limits := make(map[string]any, len(gs.Resources.Limits))
+		for k, v := range gs.Resources.Limits {
+			limits[k] = strings.TrimSpace(v)
+		}
+		resourceVals["limits"] = limits
+	}
+	if len(resourceVals) > 0 {
+		values["resources"] = resourceVals
 	}
 
-	if sa, ok := values["serviceAccount"].(map[string]any); ok {
-		switch a := sa["annotations"].(type) {
-		case map[string]any:
-			// already normalized
-		case map[string]string:
-			m := make(map[string]any, len(a))
-			for k, v := range a {
-				m[k] = v
-			}
-			sa["annotations"] = m
-		case nil:
-			sa["annotations"] = map[string]any{}
-		default:
-			sa["annotations"] = map[string]any{}
+	// Role labels.
+	if len(gs.Role.Labels) > 0 {
+		labels := make(map[string]any, len(gs.Role.Labels))
+		for k, v := range gs.Role.Labels {
+			labels[k] = v
 		}
-		values["serviceAccount"] = sa
+		values["role"] = map[string]any{"labels": labels}
+	}
+
+	// Deployment tuning.
+	deployment := map[string]any{}
+	if len(gs.Deployment.Annotations) > 0 {
+		ann := make(map[string]any, len(gs.Deployment.Annotations))
+		for k, v := range gs.Deployment.Annotations {
+			ann[k] = v
+		}
+		deployment["annotations"] = ann
+	}
+	if len(gs.Deployment.Labels) > 0 {
+		lbl := make(map[string]any, len(gs.Deployment.Labels))
+		for k, v := range gs.Deployment.Labels {
+			lbl[k] = v
+		}
+		deployment["labels"] = lbl
+	}
+	if port := gs.Deployment.ContainerPort; port > 0 {
+		deployment["containerPort"] = port
+	}
+	if replicas := gs.Deployment.Replicas; replicas > 0 {
+		deployment["replicas"] = replicas
+	}
+	if len(gs.Deployment.NodeSelector) > 0 {
+		ns := make(map[string]any, len(gs.Deployment.NodeSelector))
+		for k, v := range gs.Deployment.NodeSelector {
+			ns[k] = v
+		}
+		deployment["nodeSelector"] = ns
+	}
+	if len(gs.Deployment.Tolerations) > 0 {
+		deployment["tolerations"] = cloneSliceOfMaps(gs.Deployment.Tolerations)
+	}
+	if len(gs.Deployment.Affinity) > 0 {
+		deployment["affinity"] = cloneMap(gs.Deployment.Affinity)
+	}
+	if pc := strings.TrimSpace(gs.Deployment.PriorityClassName); pc != "" {
+		deployment["priorityClassName"] = pc
+	}
+	if gs.Deployment.HostNetwork {
+		deployment["hostNetwork"] = true
+	}
+	if dns := strings.TrimSpace(gs.Deployment.DNSPolicy); dns != "" {
+		deployment["dnsPolicy"] = dns
+	}
+	if len(gs.Deployment.Strategy) > 0 {
+		deployment["strategy"] = cloneMap(gs.Deployment.Strategy)
+	}
+	if len(gs.Deployment.ExtraVolumes) > 0 {
+		deployment["extraVolumes"] = cloneSliceOfMaps(gs.Deployment.ExtraVolumes)
+	}
+	if len(gs.Deployment.ExtraVolumeMounts) > 0 {
+		deployment["extraVolumeMounts"] = cloneSliceOfMaps(gs.Deployment.ExtraVolumeMounts)
+	}
+	if len(gs.Deployment.ExtraEnvVars) > 0 {
+		deployment["extraEnvVars"] = cloneSliceOfMaps(gs.Deployment.ExtraEnvVars)
+	}
+	if len(deployment) > 0 {
+		values["deployment"] = deployment
+	}
+
+	// Reconcile tuning.
+	reconcile := map[string]any{}
+	if period := gs.Reconcile.DefaultResyncPeriod; period > 0 {
+		reconcile["defaultResyncPeriod"] = period
+	}
+	if max := gs.Reconcile.DefaultMaxConcurrentSyncs; max > 0 {
+		reconcile["defaultMaxConcurrentSyncs"] = max
+	}
+	if len(gs.Reconcile.ResourceResyncPeriods) > 0 {
+		periods := make(map[string]any, len(gs.Reconcile.ResourceResyncPeriods))
+		for k, v := range gs.Reconcile.ResourceResyncPeriods {
+			periods[k] = v
+		}
+		reconcile["resourceResyncPeriods"] = periods
+	}
+	if len(gs.Reconcile.ResourceMaxConcurrentSyncs) > 0 {
+		maxes := make(map[string]any, len(gs.Reconcile.ResourceMaxConcurrentSyncs))
+		for k, v := range gs.Reconcile.ResourceMaxConcurrentSyncs {
+			maxes[k] = v
+		}
+		reconcile["resourceMaxConcurrentSyncs"] = maxes
+	}
+	if len(gs.Reconcile.Resources) > 0 {
+		reconcile["resources"] = append([]string{}, gs.Reconcile.Resources...)
+	}
+	if len(reconcile) > 0 {
+		values["reconcile"] = reconcile
+	}
+
+	// Leader election.
+	le := map[string]any{}
+	if gs.LeaderElection.Enabled {
+		le["enabled"] = true
+	}
+	if ns := strings.TrimSpace(gs.LeaderElection.Namespace); ns != "" {
+		le["namespace"] = ns
+	}
+	if len(le) > 0 {
+		values["leaderElection"] = le
+	}
+
+	// Global flags.
+	if len(gs.ResourceTags) > 0 {
+		tags := make([]string, 0, len(gs.ResourceTags))
+		for _, tag := range gs.ResourceTags {
+			if trimmed := strings.TrimSpace(tag); trimmed != "" {
+				tags = append(tags, trimmed)
+			}
+		}
+		if len(tags) > 0 {
+			values["resourceTags"] = tags
+		}
+	}
+	if policy := strings.TrimSpace(gs.DeletionPolicy); policy != "" {
+		values["deletionPolicy"] = policy
+	}
+	if !gs.EnableCARM {
+		values["enableCARM"] = false
+	}
+
+	featureGateDefaults := map[string]bool{
+		"ServiceLevelCARM":  false,
+		"TeamLevelCARM":     false,
+		"ReadOnlyResources": true,
+		"ResourceAdoption":  true,
+	}
+	featureGates := map[string]any{}
+	if gs.FeatureGates.ServiceLevelCARM != featureGateDefaults["ServiceLevelCARM"] {
+		featureGates["ServiceLevelCARM"] = gs.FeatureGates.ServiceLevelCARM
+	}
+	if gs.FeatureGates.TeamLevelCARM != featureGateDefaults["TeamLevelCARM"] {
+		featureGates["TeamLevelCARM"] = gs.FeatureGates.TeamLevelCARM
+	}
+	if gs.FeatureGates.ReadOnlyResources != featureGateDefaults["ReadOnlyResources"] {
+		featureGates["ReadOnlyResources"] = gs.FeatureGates.ReadOnlyResources
+	}
+	if gs.FeatureGates.ResourceAdoption != featureGateDefaults["ResourceAdoption"] {
+		featureGates["ResourceAdoption"] = gs.FeatureGates.ResourceAdoption
+	}
+	if len(featureGates) > 0 {
+		values["featureGates"] = featureGates
 	}
 
 	return values
@@ -298,6 +449,14 @@ func cloneMap(m map[string]any) map[string]any {
 		}
 	}
 	return out
+}
+
+func cloneSliceOfMaps(list []map[string]any) []map[string]any {
+	clone := make([]map[string]any, len(list))
+	for i, item := range list {
+		clone[i] = cloneMap(item)
+	}
+	return clone
 }
 
 // SplitYAML is re-exported for tests and callers that need to split multi-doc YAML strings.

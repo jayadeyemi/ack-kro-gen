@@ -7,8 +7,8 @@ import (
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 )
 
-// BuildRuntimeSentinels constructs a literal->sentinel map using GraphSpec values.
-func BuildRuntimeSentinels(gs config.GraphSpec) map[string]string {
+// BuildRuntimeSentinels constructs a literal->sentinel map using ValuesSpec values.
+func BuildRuntimeSentinels(gs config.ValuesSpec) map[string]string {
 	replacements := map[string]string{}
 
 	add := func(value, sentinel string) {
@@ -29,18 +29,17 @@ func BuildRuntimeSentinels(gs config.GraphSpec) map[string]string {
 	add(controllerName, "_CONTROLLER_SERVICE_")
 	add(namespace, "_NAMESPACE_")
 	add(gs.Namespace, "_NAMESPACE_")
-	add(gs.AWS.AccountID, "_AWS_ACCOUNT_ID_")
 	add(gs.AWS.Region, "_AWS_REGION_")
-	add(gs.AWS.Credentials, "_AWS_SECRET_KEY_")
-	add(gs.AWS.SecretName, "_AWS_SECRET_NAME_")
-	add(gs.AWS.Profile, "_AWS_PROFILE_")
+	add(gs.AWS.EndpointURL, "_AWS_ENDPOINT_URL_")
+	add(gs.AWS.Credentials.SecretKey, "_AWS_SECRET_KEY_")
+	add(gs.AWS.Credentials.SecretName, "_AWS_SECRET_NAME_")
+	add(gs.AWS.Credentials.Profile, "_AWS_PROFILE_")
 	add(gs.Image.Repository, "_IMAGE_REPOSITORY_")
 	add(imageRepo, "_IMAGE_REPOSITORY_")
 	add(gs.Image.Tag, "_IMAGE_TAG_")
 	add(imageTag, "_IMAGE_TAG_")
 	add(gs.ServiceAccount.Name, "_SA_NAME_")
 	add(controllerName, "_SA_NAME_")
-	add(strings.ToLower(strings.TrimSpace(gs.Service)), "_SERVICE_LOWER_")
 
 	return replacements
 }

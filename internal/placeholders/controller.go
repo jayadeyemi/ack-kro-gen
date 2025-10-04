@@ -3,71 +3,201 @@ package placeholders
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 )
 
 // ControllerValues builds the values block for the controller graph schema using
-// chart defaults, GraphSpec overrides, and observed CRD kinds.
-func ControllerValues(gs config.GraphSpec, overrides map[string]any, crdKinds []string) map[string]any {
+// chart defaults, ValuesSpec overrides, and observed CRD kinds.
+func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 	// Seed with full set of controller defaults derived from SchemaDefaults.
 	// Chart defaults are not provided here, so pass nil.
 	values, _ := controllerDefaults(gs, nil)
 
-	serviceName := strings.TrimSpace(gs.Service)
-
-	setNestedValue(values, []string{"aws", "accountID"}, StringDefault(gs.AWS.AccountID, schemaDefaultValue("aws.accountID")))
-	setNestedValue(values, []string{"aws", "region"}, StringDefault(gs.AWS.Region, schemaDefaultValue("aws.region")))
-	setNestedValue(values, []string{"aws", "credentials", "secretName"}, StringDefault(gs.AWS.SecretName, schemaDefaultValue("aws.credentials.secretName")))
-	setNestedValue(values, []string{"aws", "credentials", "secretKey"}, StringDefault(gs.AWS.Credentials, schemaDefaultValue("aws.credentials.secretKey")))
-	setNestedValue(values, []string{"aws", "credentials", "profile"}, StringDefault(gs.AWS.Profile, schemaDefaultValue("aws.credentials.profile")))
-
-	setNestedValue(values, []string{"log", "enable_development_logging"}, BoolDefault(gs.Controller.LogDev, schemaDefaultBool("log.enable_development_logging")))
-	setNestedValue(values, []string{"log", "level"}, StringDefault(gs.Controller.LogLevel, schemaDefaultValue("log.level")))
-
-	setNestedValue(values, []string{"watchNamespace"}, StringDefault(gs.Controller.WatchNamespace, schemaDefaultValue("watchNamespace")))
-
-	repoFallback := DefaultRepo(serviceName)
-	if repoFallback == "" {
-		repoFallback = schemaDefaultValue("image.repository")
-	}
-	setNestedValue(values, []string{"image", "repository"}, StringDefault(gs.Image.Repository, repoFallback))
-
-	tagFallback := DefaultTag(gs)
-	if tagFallback == "" {
-		tagFallback = schemaDefaultValue("image.tag")
-	}
-	setNestedValue(values, []string{"image", "tag"}, StringDefault(gs.Image.Tag, tagFallback))
-
-	saFallback := schemaDefaultValue("serviceAccount.name")
-	if serviceName != "" {
-		saFallback = fmt.Sprintf("ack-%s-controller", serviceName)
-	}
-	setNestedValue(values, []string{"serviceAccount", "name"}, StringDefault(gs.ServiceAccount.Name, saFallback))
-	setNestedValue(values, []string{"serviceAccount", "annotations"}, MapOrDefault(gs.ServiceAccount.Annotations))
-
-	setNestedValue(values, []string{"leaderElection", "namespace"}, StringDefault(gs.Namespace, schemaDefaultValue("leaderElection.namespace")))
-
-	roleFallback := schemaDefaultValue("iamRole.roleDescription")
-	if serviceName != "" {
-		roleFallback = fmt.Sprintf("IRSA role for ACK %s controller deployment on EKS cluster using KRO Resource Graph", strings.ToLower(serviceName))
-	}
-	setNestedValue(values, []string{"iamRole", "roleDescription"}, StringDefault("", roleFallback))
-
-	if len(crdKinds) > 0 {
-		setNestedValue(values, []string{"reconcile", "resources"}, StringSliceDefault(crdKinds))
+	setString := func(path []string, value, schemaPath string) {
+		v := strings.TrimSpace(value)
+		if v == "" {
+			return
+		}
+		setNestedValue(values, path, StringDefault(v, schemaDefaultValue(schemaPath)))
 	}
 
-	if len(overrides) > 0 {
-		values["overrides"] = overrides
+	setBool := func(path []string, value bool, schemaPath string) {
+		fallback := schemaDefaultBool(schemaPath)
+		if value == fallback {
+			return
+		}
+		setNestedValue(values, path, BoolDefault(value, fallback))
+	}
+
+	setInt := func(path []string, value int, schemaPath string) {
+		if value == 0 {
+			return
+		}
+		fallback := schemaDefaultInt(schemaPath)
+		if value == fallback {
+			return
+		}
+		setNestedValue(values, path, IntDefault(value, fallback))
+	}
+
+	setStringSlice := func(path []string, items []string) {
+		if len(items) == 0 {
+			return
+		}
+		setNestedValue(values, path, StringSliceDefault(items))
+	}
+
+	setIntMap := func(path []string, m map[string]int) {
+		if len(m) == 0 {
+			return
+		}
+		out := make(map[string]any, len(m))
+		for k, v := range m {
+			out[k] = v
+		}
+		setNestedValue(values, path, out)
+	}
+
+	setAnyMap := func(path []string, m map[string]any) {
+		if len(m) == 0 {
+			return
+		}
+		clone := make(map[string]any, len(m))
+		for k, v := range m {
+			clone[k] = v
+		}
+		setNestedValue(values, path, clone)
+	}
+
+	setSliceOfMaps := func(path []string, list []map[string]any) {
+		if len(list) == 0 {
+			return
+		}
+		clone := make([]map[string]any, len(list))
+		for i, item := range list {
+			elem := make(map[string]any, len(item))
+			for k, v := range item {
+				elem[k] = v
+			}
+			clone[i] = elem
+		}
+		setNestedValue(values, path, clone)
+	}
+
+	// AWS configuration.
+	setString([]string{"aws", "region"}, gs.AWS.Region, "aws.region")
+	setString([]string{"aws", "endpoint_url"}, gs.AWS.EndpointURL, "aws.endpoint_url")
+	setString([]string{"aws", "credentials", "secretName"}, gs.AWS.Credentials.SecretName, "aws.credentials.secretName")
+	setString([]string{"aws", "credentials", "secretKey"}, gs.AWS.Credentials.SecretKey, "aws.credentials.secretKey")
+	setString([]string{"aws", "credentials", "profile"}, gs.AWS.Credentials.Profile, "aws.credentials.profile")
+
+	// Image configuration.
+	setString([]string{"image", "repository"}, gs.Image.Repository, "image.repository")
+	setString([]string{"image", "tag"}, gs.Image.Tag, "image.tag")
+	setString([]string{"image", "pullPolicy"}, gs.Image.PullPolicy, "image.pullPolicy")
+	setStringSlice([]string{"image", "pullSecrets"}, gs.Image.PullSecrets)
+
+	// Logging and observability.
+	setBool([]string{"log", "enable_development_logging"}, gs.Log.EnableDevelopmentLogging, "log.enable_development_logging")
+	setString([]string{"log", "level"}, gs.Log.Level, "log.level")
+
+	// Namespace scoping and install scope.
+	setString([]string{"watchNamespace"}, gs.WatchNamespace, "watchNamespace")
+	setString([]string{"watchSelectors"}, gs.WatchSelectors, "watchSelectors")
+	setString([]string{"installScope"}, gs.InstallScope, "installScope")
+
+	// Global policy overrides.
+	setStringSlice([]string{"resourceTags"}, gs.ResourceTags)
+	setString([]string{"deletionPolicy"}, gs.DeletionPolicy, "deletionPolicy")
+
+	// ServiceAccount configuration.
+	setBool([]string{"serviceAccount", "create"}, gs.ServiceAccount.Create, "serviceAccount.create")
+	setString([]string{"serviceAccount", "name"}, gs.ServiceAccount.Name, "serviceAccount.name")
+	if len(gs.ServiceAccount.Annotations) > 0 {
+		setNestedValue(values, []string{"serviceAccount", "annotations"}, MapOrDefault(gs.ServiceAccount.Annotations))
+	}
+
+	// Leader election.
+	setBool([]string{"leaderElection", "enabled"}, gs.LeaderElection.Enabled, "leaderElection.enabled")
+	setString([]string{"leaderElection", "namespace"}, gs.LeaderElection.Namespace, "leaderElection.namespace")
+
+	// Metrics service.
+	setBool([]string{"metrics", "service", "create"}, gs.Metrics.Service.Create, "metrics.service.create")
+	setString([]string{"metrics", "service", "type"}, gs.Metrics.Service.Type, "metrics.service.type")
+
+	// Resource requests and limits.
+	if len(gs.Resources.Requests) > 0 {
+		setNestedValue(values, []string{"resources", "requests"}, MapOrDefault(gs.Resources.Requests))
+	}
+	if len(gs.Resources.Limits) > 0 {
+		setNestedValue(values, []string{"resources", "limits"}, MapOrDefault(gs.Resources.Limits))
+	}
+
+	// Role metadata.
+	if len(gs.Role.Labels) > 0 {
+		setNestedValue(values, []string{"role", "labels"}, MapOrDefault(gs.Role.Labels))
+	}
+
+	// Deployment tuning.
+	if len(gs.Deployment.Annotations) > 0 {
+		setNestedValue(values, []string{"deployment", "annotations"}, MapOrDefault(gs.Deployment.Annotations))
+	}
+	if len(gs.Deployment.Labels) > 0 {
+		setNestedValue(values, []string{"deployment", "labels"}, MapOrDefault(gs.Deployment.Labels))
+	}
+	setInt([]string{"deployment", "containerPort"}, gs.Deployment.ContainerPort, "deployment.containerPort")
+	setInt([]string{"deployment", "replicas"}, gs.Deployment.Replicas, "deployment.replicas")
+	if len(gs.Deployment.NodeSelector) > 0 {
+		setNestedValue(values, []string{"deployment", "nodeSelector"}, MapOrDefault(gs.Deployment.NodeSelector))
+	}
+	setSliceOfMaps([]string{"deployment", "tolerations"}, gs.Deployment.Tolerations)
+	setAnyMap([]string{"deployment", "affinity"}, gs.Deployment.Affinity)
+	setString([]string{"deployment", "priorityClassName"}, gs.Deployment.PriorityClassName, "deployment.priorityClassName")
+	setBool([]string{"deployment", "hostNetwork"}, gs.Deployment.HostNetwork, "deployment.hostNetwork")
+	setString([]string{"deployment", "dnsPolicy"}, gs.Deployment.DNSPolicy, "deployment.dnsPolicy")
+	setAnyMap([]string{"deployment", "strategy"}, gs.Deployment.Strategy)
+	setSliceOfMaps([]string{"deployment", "extraVolumes"}, gs.Deployment.ExtraVolumes)
+	setSliceOfMaps([]string{"deployment", "extraVolumeMounts"}, gs.Deployment.ExtraVolumeMounts)
+	setSliceOfMaps([]string{"deployment", "extraEnvVars"}, gs.Deployment.ExtraEnvVars)
+
+	// Reconcile behaviour.
+	setInt([]string{"reconcile", "defaultResyncPeriod"}, gs.Reconcile.DefaultResyncPeriod, "reconcile.defaultResyncPeriod")
+	setInt([]string{"reconcile", "defaultMaxConcurrentSyncs"}, gs.Reconcile.DefaultMaxConcurrentSyncs, "reconcile.defaultMaxConcurrentSyncs")
+	setIntMap([]string{"reconcile", "resourceResyncPeriods"}, gs.Reconcile.ResourceResyncPeriods)
+	setIntMap([]string{"reconcile", "resourceMaxConcurrentSyncs"}, gs.Reconcile.ResourceMaxConcurrentSyncs)
+	if len(gs.Reconcile.Resources) > 0 {
+		setStringSlice([]string{"reconcile", "resources"}, gs.Reconcile.Resources)
+	} else if len(crdKinds) > 0 {
+		setStringSlice([]string{"reconcile", "resources"}, crdKinds)
+	}
+
+	// Feature toggles.
+	setBool([]string{"enableCARM"}, gs.EnableCARM, "enableCARM")
+	fgDefaults := schemaFeatureGateDefaults()
+	featureGateOverrides := map[string]any{}
+	if def, ok := fgDefaults["ServiceLevelCARM"]; !ok || gs.FeatureGates.ServiceLevelCARM != def {
+		featureGateOverrides["ServiceLevelCARM"] = BoolDefault(gs.FeatureGates.ServiceLevelCARM, def)
+	}
+	if def, ok := fgDefaults["TeamLevelCARM"]; !ok || gs.FeatureGates.TeamLevelCARM != def {
+		featureGateOverrides["TeamLevelCARM"] = BoolDefault(gs.FeatureGates.TeamLevelCARM, def)
+	}
+	if def, ok := fgDefaults["ReadOnlyResources"]; !ok || gs.FeatureGates.ReadOnlyResources != def {
+		featureGateOverrides["ReadOnlyResources"] = BoolDefault(gs.FeatureGates.ReadOnlyResources, def)
+	}
+	if def, ok := fgDefaults["ResourceAdoption"]; !ok || gs.FeatureGates.ResourceAdoption != def {
+		featureGateOverrides["ResourceAdoption"] = BoolDefault(gs.FeatureGates.ResourceAdoption, def)
+	}
+	if len(featureGateOverrides) > 0 {
+		setNestedValue(values, []string{"featureGates"}, featureGateOverrides)
 	}
 
 	return values
 }
 
 // schemaDefaultValue returns the raw default string for a given schema path
-// like "aws.accountID" by looking up SchemaDefaults.
 func schemaDefaultValue(path string) string {
 	key := "${schema.spec." + strings.TrimSpace(path) + "}"
 	if v, ok := SchemaDefaults[key]; ok {
@@ -82,6 +212,29 @@ func schemaDefaultBool(path string) bool {
 	return v == "true"
 }
 
+func schemaDefaultInt(path string) int {
+	v := strings.TrimSpace(schemaDefaultValue(path))
+	if v == "" {
+		return 0
+	}
+	if i, err := strconv.Atoi(v); err == nil {
+		return i
+	}
+	return 0
+}
+
+func schemaFeatureGateDefaults() map[string]bool {
+	raw := strings.TrimSpace(schemaDefaultValue("featureGates"))
+	if raw == "" {
+		return map[string]bool{}
+	}
+	out := map[string]bool{}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return map[string]bool{}
+	}
+	return out
+}
+
 // DefaultRepo returns the default ACK controller image repository for a service name.
 func DefaultRepo(serviceName string) string {
 	svc := strings.TrimSpace(serviceName)
@@ -92,14 +245,14 @@ func DefaultRepo(serviceName string) string {
 }
 
 // DefaultTag returns the default controller image tag, falling back to the graph version.
-func DefaultTag(gs config.GraphSpec) string {
+func DefaultTag(gs config.ValuesSpec) string {
 	if v := strings.TrimSpace(gs.Image.Tag); v != "" {
 		return v
 	}
 	return strings.TrimSpace(gs.Version)
 }
 
-func controllerDefaults(gs config.GraphSpec, chartDefaults map[string]any) (map[string]any, map[string]string) {
+func controllerDefaults(gs config.ValuesSpec, chartDefaults map[string]any) (map[string]any, map[string]string) {
 	allowedRoots := map[string]struct{}{
 		"aws":            {},
 		"deletionPolicy": {},
@@ -145,7 +298,7 @@ func controllerDefaults(gs config.GraphSpec, chartDefaults map[string]any) (map[
 	return values, rawDefaults
 }
 
-func resolveControllerDefaults(gs config.GraphSpec, chartDefaults map[string]any) map[string]string {
+func resolveControllerDefaults(gs config.ValuesSpec, chartDefaults map[string]any) map[string]string {
 	resolved := map[string]string{}
 	flattened := map[string]string{}
 	if chartDefaults != nil {
@@ -208,7 +361,7 @@ func marshalScalar(v any) string {
 	}
 }
 
-func resolveTokens(in string, gs config.GraphSpec) string {
+func resolveTokens(in string, gs config.ValuesSpec) string {
 	out := in
 	replacements := map[string]string{
 		"_CONTROLLER_NAME_":    defaultControllerName(gs),
@@ -228,7 +381,7 @@ func resolveTokens(in string, gs config.GraphSpec) string {
 	return out
 }
 
-func defaultControllerName(gs config.GraphSpec) string {
+func defaultControllerName(gs config.ValuesSpec) string {
 	svc := strings.TrimSpace(gs.Service)
 	if svc == "" {
 		return "ack-controller"
@@ -236,14 +389,14 @@ func defaultControllerName(gs config.GraphSpec) string {
 	return fmt.Sprintf("ack-%s-controller", strings.ToLower(svc))
 }
 
-func defaultNamespace(gs config.GraphSpec) string {
+func defaultNamespace(gs config.ValuesSpec) string {
 	if ns := strings.TrimSpace(gs.Namespace); ns != "" {
 		return ns
 	}
 	return "ack-system"
 }
 
-func defaultImageRepository(gs config.GraphSpec) string {
+func defaultImageRepository(gs config.ValuesSpec) string {
 	svc := strings.TrimSpace(gs.Service)
 	if svc == "" {
 		return ""
@@ -251,7 +404,7 @@ func defaultImageRepository(gs config.GraphSpec) string {
 	return fmt.Sprintf("public.ecr.aws/aws-controllers-k8s/%s-controller", strings.ToLower(svc))
 }
 
-func defaultImageTag(gs config.GraphSpec) string {
+func defaultImageTag(gs config.ValuesSpec) string {
 	return strings.TrimSpace(gs.Version)
 }
 
@@ -365,16 +518,19 @@ func StringDefault(v, fallback string) string {
 	return "string | default=" + s
 }
 
-// BoolDefault returns `boolean | default=<value>` using v when valid or fallback otherwise.
-func BoolDefault(v string, fallback bool) string {
-	s := strings.TrimSpace(strings.ToLower(v))
-	if s == "true" || s == "false" {
-		return "boolean | default=" + s
+func BoolDefault(v bool, fallback bool) string {
+	val := v
+	if v == fallback {
+		val = fallback
 	}
-	if fallback {
+	if val {
 		return "boolean | default=true"
 	}
 	return "boolean | default=false"
+}
+
+func IntDefault(v, _ int) string {
+	return fmt.Sprintf("integer | default=%d", v)
 }
 
 // StringSliceDefault formats a string slice default while de-duplicating entries.

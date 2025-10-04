@@ -12,7 +12,6 @@ spec:
       namespace: string | default=ack-system
       values:
         aws:
-          accountID: string | default=""
           credentials:
             profile: string | default=default
             secretKey: string | default=credentials
@@ -48,7 +47,7 @@ spec:
         installScope: string | default=cluster
         leaderElection:
           enabled: boolean | default=false
-          namespace: string | default=ack-system
+          namespace: string | default=""
         log:
           enable_development_logging: boolean | default=false
           level: string | default=info
@@ -218,7 +217,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: ${schema.spec.namespace}
+            namespace: _KRO${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -239,7 +238,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: ${schema.spec.namespace}
+            namespace: _KRO${schema.spec.namespace}
     - id: graph-role
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -253,7 +252,7 @@ spec:
             helm.sh/chart: s3-chart-${schema.spec.image.tag}
             k8s-app: s3-chart
           name: ${schema.spec.name}-s3-chart-configmaps-cache
-          namespace: ${schema.spec.namespace}
+          namespace: _KRO${schema.spec.namespace}
         rules:
           - apiGroups:
               - ""
@@ -276,7 +275,7 @@ spec:
             helm.sh/chart: s3-chart-${schema.spec.image.tag}
             k8s-app: s3-chart
           name: ${schema.spec.name}-s3-chart-reader
-          namespace: ${schema.spec.namespace}
+          namespace: _KRO${schema.spec.namespace}
         rules:
           - apiGroups:
               - s3.services.k8s.aws
@@ -299,7 +298,7 @@ spec:
             helm.sh/chart: s3-chart-${schema.spec.image.tag}
             k8s-app: s3-chart
           name: ${schema.spec.name}-s3-chart-writer
-          namespace: ${schema.spec.namespace}
+          namespace: _KRO${schema.spec.namespace}
         rules:
           - apiGroups:
               - s3.services.k8s.aws
@@ -334,7 +333,7 @@ spec:
             helm.sh/chart: s3-chart-${schema.spec.image.tag}
             k8s-app: s3-chart
           name: ${schema.spec.name}-s3-chart-configmaps-cache
-          namespace: ${schema.spec.namespace}
+          namespace: _KRO${schema.spec.namespace}
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: Role
@@ -342,7 +341,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: ${schema.spec.namespace}
+            namespace: _KRO${schema.spec.namespace}
     - id: graph-deployment
       template:
         apiVersion: apps/v1

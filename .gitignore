@@ -2,4 +2,4 @@
 /ack-kro-gen
 ack-kro-gen.txt
 **/*.log
-git.patch
+/.vscode
