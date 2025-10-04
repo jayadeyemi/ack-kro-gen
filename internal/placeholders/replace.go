@@ -24,12 +24,28 @@ func ApplySentinelToSchema(in string) string {
 
 // ApplySchemaDefaults replaces ${schema...} refs with concrete defaults.
 // Only applied when emitting schema defaults or when materializing examples.
-func ApplySchemaDefaults(in string) string {
+func ApplySchemaDefaults(in string, defaults map[string]string) string {
 	// Use regex to catch ${...} tokens even if new ones are added later.
 	re := regexp.MustCompile(`\$\{schema\.spec[^}]*\}`)
 	return re.ReplaceAllStringFunc(in, func(tok string) string {
-		if v, ok := SchemaDefaults[tok]; ok {
-			return v
+		if defaults != nil {
+			if v, ok := defaults[tok]; ok {
+				return v
+			}
+			if segments := schemaPathSegments(tok); len(segments) > 0 {
+				pathKey := strings.Join(segments, ".")
+				if v, ok := defaults[pathKey]; ok {
+					return v
+				}
+				encodedSegments := make([]string, len(segments))
+				for i, seg := range segments {
+					encodedSegments[i] = encodeKeySegment(seg)
+				}
+				encodedKey := strings.Join(encodedSegments, ".")
+				if v, ok := defaults[encodedKey]; ok {
+					return v
+				}
+			}
 		}
 		// Unknown token passes through unchanged.
 		return tok
@@ -37,10 +53,10 @@ func ApplySchemaDefaults(in string) string {
 }
 
 // ReplaceAll does both passes in correct order.
-func ReplaceAll(in string, withDefaults bool) string {
+func ReplaceAll(in string, withDefaults bool, defaults map[string]string) string {
 	out := ApplySentinelToSchema(in)
 	if withDefaults {
-		out = ApplySchemaDefaults(out)
+		out = ApplySchemaDefaults(out, defaults)
 	}
 	return out
 }

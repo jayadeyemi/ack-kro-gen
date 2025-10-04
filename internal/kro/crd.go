@@ -34,7 +34,7 @@ func buildCRDResources(list []classify.Obj) ([]Resource, error) {
 }
 
 // MakeCRDsRGD assembles the CRDs RGD for a service.
-func MakeCRDsRGD(gs config.GraphSpec, serviceUpper string, crdResources []Resource, crdKinds []string) RGD {
+func MakeCRDsRGD(gs config.ValuesSpec, serviceUpper string, crdResources []Resource, crdKinds []string) RGD {
 	return RGD{
 		APIVersion: "kro.run/v1alpha1",
 		Kind:       "ResourceGraphDefinition",
@@ -50,13 +50,14 @@ func MakeCRDsRGD(gs config.GraphSpec, serviceUpper string, crdResources []Resour
 }
 
 // CRDSchema assembles the schema for CRD graphs using shared placeholder handling.
-func CRDSchema(gs config.GraphSpec, serviceUpper string, crdKinds []string) Schema {
+func CRDSchema(gs config.ValuesSpec, serviceUpper string, crdKinds []string) Schema {
 	values := map[string]any{
 		"reconcile": map[string]any{
 			"resources": placeholders.StringSliceDefault(crdKinds),
 		},
 	}
 	spec := buildSchemaSpec(gs, fmt.Sprintf("ack-%s-controller", gs.Service), values)
+
 	return Schema{
 		APIVersion: "v1alpha1",
 		Kind:       serviceUpper + "crdgraph",

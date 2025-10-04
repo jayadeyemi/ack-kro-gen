@@ -12,11 +12,11 @@ spec:
       namespace: string | default=ack-system
       values:
         aws:
-          accountID: string | default=""
           credentials:
             profile: string | default=default
             secretKey: string | default=credentials
             secretName: string | default=""
+          endpoint_url: string | default=""
           region: string | default=""
         deletionPolicy: string | default=delete
         deployment:
@@ -24,22 +24,23 @@ spec:
           annotations: object | default={}
           containerPort: integer | default=8080
           dnsPolicy: string | default=ClusterFirst
-          extraEnvVars: object | default={}
-          extraVolumeMounts: object | default={}
-          extraVolumes: object | default={}
+          extraEnvVars: string[] | default=[]
+          extraVolumeMounts: string[] | default=[]
+          extraVolumes: string[] | default=[]
           hostNetwork: boolean | default=false
           labels: object | default={}
-          nodeSelector: object | default={"kubernetes.io/os":"linux"}
+          nodeSelector:
+            kubernetes.io/os: string | default=linux
           priorityClassName: string | default=""
           replicas: integer | default=1
           strategy: object | default={}
-          tolerations: object | default={}
+          tolerations: string[] | default=[]
         enableCARM: boolean | default=true
-        featureGates: object | default={"ServiceLevelCARM":false,"TeamLevelCARM":false,"ReadOnlyResources":true,"ResourceAdoption":true}
-        iamRole:
-          maxSessionDuration: integer | default=3600
-          oidcProvider: string | default=""
-          roleDescription: string | default=IRSA role for ACK rds controller deployment on EKS cluster using KRO Resource Graph
+        featureGates:
+          ReadOnlyResources: boolean | default=true
+          ResourceAdoption: boolean | default=true
+          ServiceLevelCARM: boolean | default=false
+          TeamLevelCARM: boolean | default=false
         image:
           pullPolicy: string | default=IfNotPresent
           pullSecrets: string[] | default=[]
@@ -48,7 +49,7 @@ spec:
         installScope: string | default=cluster
         leaderElection:
           enabled: boolean | default=false
-          namespace: string | default=ack-system
+          namespace: string | default=""
         log:
           enable_development_logging: boolean | default=false
           level: string | default=info
@@ -61,8 +62,8 @@ spec:
           defaultResyncPeriod: integer | default=36000
           resourceMaxConcurrentSyncs: object | default={}
           resourceResyncPeriods: object | default={}
-          resources: string[] | default=["AdoptedResource","DBClusterEndpoint","DBClusterParameterGroup","DBCluster","DBClusterSnapshot","DBInstance","DBParameterGroup","DBProxy","DBSnapshot","DBSubnetGroup","FieldExport","GlobalCluster"]
-        resourceTags: string[] | default=["services.k8s.aws/controller-version=ack-rds-controller-1.6.2","services.k8s.aws/namespace=ack-system"]
+          resources: string[] | default=["DBCluster","DBClusterEndpoint","DBClusterParameterGroup","DBClusterSnapshot","DBInstance","DBParameterGroup","DBProxy","DBSnapshot","DBSubnetGroup","GlobalCluster"]
+        resourceTags: string[] | default=["services.k8s.aws/controller-version=%CONTROLLER_SERVICE%-%CONTROLLER_VERSION%","services.k8s.aws/namespace=%K8S_NAMESPACE%"]
         resources:
           limits:
             cpu: string | default=100m
@@ -92,16 +93,16 @@ spec:
         apiVersion: v1
         kind: ServiceAccount
         metadata:
-          annotations: null
+          annotations: ${schema.spec.serviceAccount.annotations}
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
-          name: ack-rds-controller
-          namespace: _KRO${schema.spec.namespace}
+          name: ${schema.spec.serviceAccount.name}
+          namespace: ${schema.spec.namespace}
     - id: graph-clusterrole
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -109,10 +110,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart
         rules:
@@ -219,10 +220,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-namespaces-cache
         rules:
@@ -241,10 +242,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-namespaces-cache
         roleRef:
@@ -253,7 +254,7 @@ spec:
           name: ${schema.spec.name}-rds-chart-namespaces-cache
         subjects:
           - kind: ServiceAccount
-            name: ack-rds-controller
+            name: ${schema.spec.serviceAccount.name}
             namespace: _KRO${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
       template:
@@ -262,10 +263,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-rolebinding
         roleRef:
@@ -274,7 +275,7 @@ spec:
           name: ${schema.spec.name}-rds-chart
         subjects:
           - kind: ServiceAccount
-            name: ack-rds-controller
+            name: ${schema.spec.serviceAccount.name}
             namespace: _KRO${schema.spec.namespace}
     - id: graph-role
       template:
@@ -283,10 +284,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-configmaps-cache
           namespace: _KRO${schema.spec.namespace}
@@ -304,13 +305,12 @@ spec:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
         metadata:
-          creationTimestamp: null
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-reader
           namespace: _KRO${schema.spec.namespace}
@@ -337,13 +337,12 @@ spec:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
         metadata:
-          creationTimestamp: null
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-writer
           namespace: _KRO${schema.spec.namespace}
@@ -393,10 +392,10 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart-configmaps-cache
           namespace: _KRO${schema.spec.namespace}
@@ -406,61 +405,64 @@ spec:
           name: ${schema.spec.name}-rds-chart-configmaps-cache
         subjects:
           - kind: ServiceAccount
-            name: ack-rds-controller
+            name: ${schema.spec.serviceAccount.name}
             namespace: _KRO${schema.spec.namespace}
     - id: graph-deployment
       template:
         apiVersion: apps/v1
         kind: Deployment
         metadata:
+          annotations: ${schema.spec.deployment.annotations}
           labels:
             app.kubernetes.io/instance: ${schema.spec.name}
-            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/managed-by: Kro
             app.kubernetes.io/name: rds-chart
-            app.kubernetes.io/version: 1.6.2
-            helm.sh/chart: rds-chart-1.6.2
+            app.kubernetes.io/version: ${schema.spec.image.tag}
+            helm.sh/chart: rds-chart-${schema.spec.image.tag}
             k8s-app: rds-chart
           name: ${schema.spec.name}-rds-chart
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         spec:
-          replicas: 1
+          replicas: ${schema.spec.deployment.replicas}
           selector:
             matchLabels:
               app.kubernetes.io/instance: ${schema.spec.name}
               app.kubernetes.io/name: rds-chart
           template:
             metadata:
+              annotations: ${schema.spec.deployment.annotations}
               labels:
                 app.kubernetes.io/instance: ${schema.spec.name}
-                app.kubernetes.io/managed-by: Helm
+                app.kubernetes.io/managed-by: Kro
                 app.kubernetes.io/name: rds-chart
                 k8s-app: rds-chart
             spec:
               containers:
                 - args:
                     - --aws-region
-                    - $(AWS_REGION)
+                    - ${schema.spec.aws.region}
                     - --aws-endpoint-url
-                    - $(AWS_ENDPOINT_URL)
+                    - ${schema.spec.aws.endpoint_url}
                     - --log-level
-                    - $(ACK_LOG_LEVEL)
+                    - ${schema.spec.log.level}
                     - --resource-tags
-                    - $(ACK_RESOURCE_TAGS)
+                    - ${schema.spec.resourceTags}
                     - --watch-namespace
-                    - $(ACK_WATCH_NAMESPACE)
+                    - ${schema.spec.watchNamespace}
                     - --watch-selectors
-                    - $(ACK_WATCH_SELECTORS)
+                    - ${schema.spec.watchSelectors}
                     - --reconcile-resources
-                    - $(RECONCILE_RESOURCES)
+                    - ${schema.spec.reconcile.resources}
                     - --deletion-policy
-                    - $(DELETION_POLICY)
+                    - ${schema.spec.deletionPolicy}
                     - --reconcile-default-resync-seconds
-                    - $(RECONCILE_DEFAULT_RESYNC_SECONDS)
+                    - ${schema.spec.reconcile.defaultResyncPeriod}
                     - --reconcile-default-max-concurrent-syncs
-                    - $(RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS)
+                    - ${schema.spec.reconcile.defaultMaxConcurrentSyncs}
                     - --feature-gates
-                    - $(FEATURE_GATES)
-                    - --enable-carm=true
+                    - ${schema.spec.featureGates}
+                    - --enable-carm
+                    - ${schema.spec.enableCARM}
                   command:
                     - ./bin/controller
                   env:
@@ -469,31 +471,31 @@ spec:
                         fieldRef:
                           fieldPath: metadata.namespace
                     - name: AWS_REGION
-                      value: null
+                      value: ${schema.spec.aws.region}
                     - name: AWS_ENDPOINT_URL
-                      value: ""
+                      value: ${schema.spec.aws.endpoint_url}
                     - name: ACK_WATCH_NAMESPACE
-                      value: null
+                      value: ${schema.spec.watchNamespace}
                     - name: ACK_WATCH_SELECTORS
-                      value: null
+                      value: ${schema.spec.watchSelectors}
                     - name: RECONCILE_RESOURCES
-                      value: DBCluster,DBClusterEndpoint,DBClusterParameterGroup,DBClusterSnapshot,DBInstance,DBParameterGroup,DBProxy,DBSnapshot,DBSubnetGroup,GlobalCluster
+                      value: ${schema.spec.reconcile.resources}
                     - name: DELETION_POLICY
-                      value: delete
+                      value: ${schema.spec.deletionPolicy}
                     - name: LEADER_ELECTION_NAMESPACE
-                      value: ""
+                      value: ${schema.spec.leaderElection.namespace}
                     - name: ACK_LOG_LEVEL
-                      value: info
+                      value: ${schema.spec.log.level}
                     - name: ACK_RESOURCE_TAGS
-                      value: services.k8s.aws/controller-version=%CONTROLLER_SERVICE%-%CONTROLLER_VERSION%,services.k8s.aws/namespace=%K8S_NAMESPACE%
+                      value: ${schema.spec.resourceTags}
                     - name: RECONCILE_DEFAULT_RESYNC_SECONDS
-                      value: "36000"
+                      value: ${schema.spec.reconcile.defaultResyncPeriod}
                     - name: RECONCILE_DEFAULT_MAX_CONCURRENT_SYNCS
-                      value: "1"
+                      value: ${schema.spec.reconcile.defaultMaxConcurrentSyncs}
                     - name: FEATURE_GATES
-                      value: ReadOnlyResources=true,ResourceAdoption=true,ServiceLevelCARM=false,TeamLevelCARM=false
-                  image: public.ecr.aws/aws-controllers-k8s/rds-controller:1.6.2
-                  imagePullPolicy: IfNotPresent
+                      value: ${schema.spec.featureGates}
+                  image: ${schema.spec.image.repository}:${schema.spec.image.tag}
+                  imagePullPolicy: ${schema.spec.image.pullPolicy}
                   livenessProbe:
                     httpGet:
                       path: /healthz
@@ -502,7 +504,7 @@ spec:
                     periodSeconds: 20
                   name: controller
                   ports:
-                    - containerPort: 8080
+                    - containerPort: ${schema.spec.deployment.containerPort}
                       name: http
                   readinessProbe:
                     httpGet:
@@ -512,11 +514,11 @@ spec:
                     periodSeconds: 10
                   resources:
                     limits:
-                      cpu: 100m
-                      memory: 128Mi
+                      cpu: ${schema.spec.resources.limits.cpu}
+                      memory: ${schema.spec.resources.limits.memory}
                     requests:
-                      cpu: 50m
-                      memory: 64Mi
+                      cpu: ${schema.spec.resources.requests.cpu}
+                      memory: ${schema.spec.resources.requests.memory}
                   securityContext:
                     allowPrivilegeEscalation: false
                     capabilities:
@@ -534,5 +536,5 @@ spec:
               securityContext:
                 seccompProfile:
                   type: RuntimeDefault
-              serviceAccountName: ack-rds-controller
+              serviceAccountName: ${schema.spec.serviceAccount.name}
               terminationGracePeriodSeconds: 10

@@ -1,11 +1,11 @@
 package placeholders
 
 // Defaults is a typed view if you need programmatic access elsewhere.
-// The replacement engine still uses SchemaDefaults map.
+// Runtime default generation now derives from chart values rather than a static map.
 type Defaults struct {
-	Name        string
-	Namespace   string
-	AWS         struct {
+	Name      string
+	Namespace string
+	AWS       struct {
 		AccountID   string
 		Region      string
 		EndpointURL string
@@ -16,33 +16,33 @@ type Defaults struct {
 		}
 	}
 	DeletionPolicy string
-	Image struct {
-		Repository string
-		Tag        string
-		PullPolicy string
+	Image          struct {
+		Repository  string
+		Tag         string
+		PullPolicy  string
 		PullSecrets []string
 	}
 	Deployment struct {
-		Replicas           int
-		ContainerPort      int
-		Labels             map[string]any
-		Annotations        map[string]any
-		NodeSelector       map[string]string
-		Tolerations        []any
-		Affinity           map[string]any
-		PriorityClassName  string
-		HostNetwork        bool
-		DNSPolicy          string
-		Strategy           map[string]any
-		ExtraVolumes       []any
-		ExtraVolumeMounts  []any
-		ExtraEnvVars       []any
+		Replicas          int
+		ContainerPort     int
+		Labels            map[string]any
+		Annotations       map[string]any
+		NodeSelector      map[string]string
+		Tolerations       []string
+		Affinity          map[string]any
+		PriorityClassName string
+		HostNetwork       bool
+		DNSPolicy         string
+		Strategy          map[string]any
+		ExtraVolumes      []string
+		ExtraVolumeMounts []string
+		ExtraEnvVars      []string
 	}
 	Resources struct {
 		Requests struct{ Memory, CPU string }
 		Limits   struct{ Memory, CPU string }
 	}
-	Role struct{ Labels map[string]any }
+	Role    struct{ Labels map[string]any }
 	Metrics struct {
 		Service struct {
 			Create bool
@@ -57,15 +57,15 @@ type Defaults struct {
 	WatchNamespace string
 	WatchSelectors string
 	ResourceTags   []string
-	Reconcile struct {
+	Reconcile      struct {
 		DefaultResyncSeconds        int
 		ResourceResyncSecondsByKind map[string]any
 		DefaultMaxConcurrent        int
 		ResourceMaxConcurrentByKind map[string]any
 		Resources                   []string
 	}
-	EnableCARM   bool
-	FeatureGates map[string]any
+	EnableCARM     bool
+	FeatureGates   map[string]any
 	ServiceAccount struct {
 		Create      bool
 		Name        string
