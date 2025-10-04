@@ -253,7 +253,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: _KRO${schema.spec.namespace}
+            namespace: ${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -274,7 +274,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: _KRO${schema.spec.namespace}
+            namespace: ${schema.spec.namespace}
     - id: graph-role
       template:
         apiVersion: rbac.authorization.k8s.io/v1
@@ -288,7 +288,7 @@ spec:
             helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-configmaps-cache
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         rules:
           - apiGroups:
               - ""
@@ -311,7 +311,7 @@ spec:
             helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-reader
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         rules:
           - apiGroups:
               - ec2.services.k8s.aws
@@ -351,7 +351,7 @@ spec:
             helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-writer
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         rules:
           - apiGroups:
               - ec2.services.k8s.aws
@@ -420,7 +420,7 @@ spec:
             helm.sh/chart: ec2-chart-${schema.spec.image.tag}
             k8s-app: ec2-chart
           name: ${schema.spec.name}-ec2-chart-configmaps-cache
-          namespace: _KRO${schema.spec.namespace}
+          namespace: ${schema.spec.namespace}
         roleRef:
           apiGroup: rbac.authorization.k8s.io
           kind: Role
@@ -428,7 +428,7 @@ spec:
         subjects:
           - kind: ServiceAccount
             name: ${schema.spec.serviceAccount.name}
-            namespace: _KRO${schema.spec.namespace}
+            namespace: ${schema.spec.namespace}
     - id: graph-deployment
       template:
         apiVersion: apps/v1

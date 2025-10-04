@@ -15,6 +15,10 @@ step "env"
 printf "BIN=%s\nGRAPHS=%s\nOUT=%s\nCACHE=%s\nCONCURRENCY=%s\nLOG_LEVEL=%s\nOFFLINE=%s\n" \
   "$BIN" "$GRAPHS" "$OUT" "$CACHE" "$CONCURRENCY" "$LOG_LEVEL" "$OFFLINE"
 
+step "clean output"
+rm -rf "$OUT/ack"
+mkdir -p "$OUT/ack"
+
 step "go version"
 go version
 

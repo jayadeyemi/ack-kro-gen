@@ -1,5 +1,0 @@
-[submodule "references/kro"]
-	path = references/kro
-	url = https://github.com/kubernetes-sigs/kro.git
-	branch = main
-	ignore = all
