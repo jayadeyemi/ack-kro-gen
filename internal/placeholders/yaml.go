@@ -38,7 +38,7 @@ func applyScalarReplace(n *yaml.Node) {
 		return
 	}
 	if n.Kind == yaml.ScalarNode {
-		n.Value = ReplaceAll(n.Value, false)
+		n.Value = ReplaceAll(n.Value, false, nil)
 	}
 	for _, child := range n.Content {
 		applyScalarReplace(child)

@@ -35,6 +35,8 @@ type Result struct {
 	RenderedFiles map[string]string
 	// CRDs contains raw YAML documents from crds/ files. No templating is applied.
 	CRDs []string
+	// ChartValues captures the chart's default values from values.yaml for downstream defaults processing.
+	ChartValues map[string]any
 }
 
 // RenderChart loads a Helm chart archive (or directory), renders templates with values derived from
@@ -45,6 +47,8 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.ValuesS
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %w", err)
 	}
+
+	chartDefaults := cloneMap(ch.Values)
 
 	// Build the values map to feed into Helm's renderer based on ValuesSpec.
 	vals := buildValues(gs)
@@ -111,7 +115,7 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.ValuesS
 	}
 
 	// Return controller manifests (ordered) and raw CRDs.
-	return &Result{RenderedFiles: ordered, CRDs: crds}, nil
+	return &Result{RenderedFiles: ordered, CRDs: crds, ChartValues: chartDefaults}, nil
 }
 
 // buildValues constructs the Helm values map consumed by the ACK controller chart

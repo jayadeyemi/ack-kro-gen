@@ -97,7 +97,7 @@ func EmitRGDs(gs config.ValuesSpec, r *render.Result, outDir string) ([]string, 
 
 	// Build per-domain RGDs.
 	crdsRGD := MakeCRDsRGD(gs, serviceUpper, crdResources, crdKinds)
-	ctrlRGD := MakeCtrlRGD(gs, serviceUpper, ctrlResources, crdKinds)
+	ctrlRGD := MakeCtrlRGD(gs, serviceUpper, ctrlResources, crdKinds, r.ChartValues)
 
 	// Write files.
 	outAckDir := filepath.Join(absOutDir, "ack")

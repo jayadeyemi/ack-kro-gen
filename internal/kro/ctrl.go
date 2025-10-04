@@ -36,7 +36,7 @@ func controllerIDForKind(kind string) string {
 }
 
 // MakeCtrlRGD assembles the controller RGD for a service.
-func MakeCtrlRGD(gs config.ValuesSpec, serviceUpper string, ctrlResources []Resource, crdKinds []string) RGD {
+func MakeCtrlRGD(gs config.ValuesSpec, serviceUpper string, ctrlResources []Resource, crdKinds []string, chartDefaults map[string]any) RGD {
 	// Add a graph-crd item as the first resource in the controller graph.
 	ctrlResources = append([]Resource{makeGraphCRDItem(gs.Service, serviceUpper)}, ctrlResources...)
 
@@ -49,7 +49,7 @@ func MakeCtrlRGD(gs config.ValuesSpec, serviceUpper string, ctrlResources []Reso
 			Namespace: "kro",
 		},
 		Spec: RGDSpec{
-			Schema:    CtrlSchema(gs, serviceUpper, crdKinds),
+			Schema:    CtrlSchema(gs, serviceUpper, crdKinds, chartDefaults),
 			Resources: ctrlResources,
 		},
 	}
@@ -57,8 +57,8 @@ func MakeCtrlRGD(gs config.ValuesSpec, serviceUpper string, ctrlResources []Reso
 
 // CtrlSchema assembles the schema for controller graphs using shared placeholders.
 
-func CtrlSchema(gs config.ValuesSpec, serviceUpper string, crdKinds []string) Schema {
-	values := placeholders.ControllerValues(gs, crdKinds)
+func CtrlSchema(gs config.ValuesSpec, serviceUpper string, crdKinds []string, chartDefaults map[string]any) Schema {
+	values := placeholders.ControllerValues(gs, crdKinds, chartDefaults)
 	spec := buildSchemaSpec(gs, fmt.Sprintf("ack-%s-controller", gs.Service), values)
 	return Schema{
 		APIVersion: "v1alpha1",

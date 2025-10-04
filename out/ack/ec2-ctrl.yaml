@@ -28,17 +28,18 @@ spec:
           extraVolumes: object | default={}
           hostNetwork: boolean | default=false
           labels: object | default={}
-          nodeSelector: object | default={"kubernetes.io/os":"linux"}
+          nodeSelector:
+            kubernetes.io/os: string | default=linux
           priorityClassName: string | default=""
           replicas: integer | default=1
           strategy: object | default={}
           tolerations: object | default={}
         enableCARM: boolean | default=true
-        featureGates: object | default={"ServiceLevelCARM":false,"TeamLevelCARM":false,"ReadOnlyResources":true,"ResourceAdoption":true}
-        iamRole:
-          maxSessionDuration: integer | default=3600
-          oidcProvider: string | default=""
-          roleDescription: string | default=IRSA role for ACK ec2 controller deployment on EKS cluster using KRO Resource Graph
+        featureGates:
+          ReadOnlyResources: boolean | default=true
+          ResourceAdoption: boolean | default=true
+          ServiceLevelCARM: boolean | default=false
+          TeamLevelCARM: boolean | default=false
         image:
           pullPolicy: string | default=IfNotPresent
           pullSecrets: string[] | default=[]
@@ -60,7 +61,7 @@ spec:
           defaultResyncPeriod: integer | default=36000
           resourceMaxConcurrentSyncs: object | default={}
           resourceResyncPeriods: object | default={}
-          resources: string[] | default=["AdoptedResource","CapacityReservation","DHCPOptions","ElasticIPAddress","FieldExport","FlowLog","Instance","InternetGateway","LaunchTemplate","NATGateway","NetworkACL","RouteTable","SecurityGroup","Subnet","TransitGateway","TransitGatewayVPCAttachment","VPCEndpoint","VPCEndpointServiceConfiguration","VPCPeeringConnection","VPC"]
+          resources: string[] | default=["CapacityReservation","DHCPOptions","ElasticIPAddress","FlowLog","Instance","InternetGateway","LaunchTemplate","NATGateway","NetworkACL","RouteTable","SecurityGroup","Subnet","TransitGateway","TransitGatewayVPCAttachment","VPC","VPCEndpoint","VPCEndpointServiceConfiguration","VPCPeeringConnection"]
         resourceTags: string[] | default=["services.k8s.aws/controller-version=ack-ec2-controller-1.7.0","services.k8s.aws/namespace=ack-system"]
         resources:
           limits:

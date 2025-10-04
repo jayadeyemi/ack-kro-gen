@@ -11,21 +11,21 @@ import (
 
 // ControllerValues builds the values block for the controller graph schema using
 // chart defaults, ValuesSpec overrides, and observed CRD kinds.
-func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
-	// Seed with full set of controller defaults derived from SchemaDefaults.
-	// Chart defaults are not provided here, so pass nil.
-	values, _ := controllerDefaults(gs, nil)
+func ControllerValues(gs config.ValuesSpec, crdKinds []string, chartDefaults map[string]any) map[string]any {
+	rawDefaults := controllerDefaults(gs, chartDefaults)
+	values := buildControllerDefaultTree(rawDefaults)
+	defaults := newSchemaDefaults(rawDefaults)
 
 	setString := func(path []string, value, schemaPath string) {
 		v := strings.TrimSpace(value)
 		if v == "" {
 			return
 		}
-		setNestedValue(values, path, StringDefault(v, schemaDefaultValue(schemaPath)))
+		setNestedValue(values, path, StringDefault(v, defaults.string(schemaPath)))
 	}
 
 	setBool := func(path []string, value bool, schemaPath string) {
-		fallback := schemaDefaultBool(schemaPath)
+		fallback := defaults.bool(schemaPath)
 		if value == fallback {
 			return
 		}
@@ -36,22 +36,31 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 		if value == 0 {
 			return
 		}
-		fallback := schemaDefaultInt(schemaPath)
+		fallback := defaults.int(schemaPath)
 		if value == fallback {
 			return
 		}
 		setNestedValue(values, path, IntDefault(value, fallback))
 	}
 
-	setStringSlice := func(path []string, items []string) {
-		if len(items) == 0 {
+	setStringSlice := func(path []string, items []string, schemaPath string) {
+		normalized := normalizeStringSlice(items)
+		fallback := normalizeStringSlice(defaults.stringSlice(schemaPath))
+		if len(normalized) == 0 {
 			return
 		}
-		setNestedValue(values, path, StringSliceDefault(items))
+		if slicesEqual(normalized, fallback) {
+			return
+		}
+		setNestedValue(values, path, StringSliceDefault(normalized))
 	}
 
-	setIntMap := func(path []string, m map[string]int) {
+	setIntMap := func(path []string, m map[string]int, schemaPath string) {
 		if len(m) == 0 {
+			return
+		}
+		fallback := defaults.intMap(schemaPath)
+		if intMapsEqual(m, fallback) {
 			return
 		}
 		out := make(map[string]any, len(m))
@@ -61,8 +70,11 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 		setNestedValue(values, path, out)
 	}
 
-	setAnyMap := func(path []string, m map[string]any) {
+	setAnyMap := func(path []string, m map[string]any, schemaPath string) {
 		if len(m) == 0 {
+			return
+		}
+		if mapsJSONEqual(m, defaults.anyMap(schemaPath)) {
 			return
 		}
 		clone := make(map[string]any, len(m))
@@ -72,8 +84,11 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 		setNestedValue(values, path, clone)
 	}
 
-	setSliceOfMaps := func(path []string, list []map[string]any) {
+	setSliceOfMaps := func(path []string, list []map[string]any, schemaPath string) {
 		if len(list) == 0 {
+			return
+		}
+		if slicesOfMapsEqual(list, defaults.sliceOfMaps(schemaPath)) {
 			return
 		}
 		clone := make([]map[string]any, len(list))
@@ -87,6 +102,16 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 		setNestedValue(values, path, clone)
 	}
 
+	setStringMap := func(path []string, m map[string]string, schemaPath string) {
+		if len(m) == 0 {
+			return
+		}
+		if stringMapsEqual(m, defaults.stringMap(schemaPath)) {
+			return
+		}
+		setNestedValue(values, path, MapOrDefault(m))
+	}
+
 	// AWS configuration.
 	setString([]string{"aws", "region"}, gs.AWS.Region, "aws.region")
 	setString([]string{"aws", "endpoint_url"}, gs.AWS.EndpointURL, "aws.endpoint_url")
@@ -98,7 +123,7 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 	setString([]string{"image", "repository"}, gs.Image.Repository, "image.repository")
 	setString([]string{"image", "tag"}, gs.Image.Tag, "image.tag")
 	setString([]string{"image", "pullPolicy"}, gs.Image.PullPolicy, "image.pullPolicy")
-	setStringSlice([]string{"image", "pullSecrets"}, gs.Image.PullSecrets)
+	setStringSlice([]string{"image", "pullSecrets"}, gs.Image.PullSecrets, "image.pullSecrets")
 
 	// Logging and observability.
 	setBool([]string{"log", "enable_development_logging"}, gs.Log.EnableDevelopmentLogging, "log.enable_development_logging")
@@ -110,15 +135,13 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 	setString([]string{"installScope"}, gs.InstallScope, "installScope")
 
 	// Global policy overrides.
-	setStringSlice([]string{"resourceTags"}, gs.ResourceTags)
+	setStringSlice([]string{"resourceTags"}, gs.ResourceTags, "resourceTags")
 	setString([]string{"deletionPolicy"}, gs.DeletionPolicy, "deletionPolicy")
 
 	// ServiceAccount configuration.
 	setBool([]string{"serviceAccount", "create"}, gs.ServiceAccount.Create, "serviceAccount.create")
 	setString([]string{"serviceAccount", "name"}, gs.ServiceAccount.Name, "serviceAccount.name")
-	if len(gs.ServiceAccount.Annotations) > 0 {
-		setNestedValue(values, []string{"serviceAccount", "annotations"}, MapOrDefault(gs.ServiceAccount.Annotations))
-	}
+	setStringMap([]string{"serviceAccount", "annotations"}, gs.ServiceAccount.Annotations, "serviceAccount.annotations")
 
 	// Leader election.
 	setBool([]string{"leaderElection", "enabled"}, gs.LeaderElection.Enabled, "leaderElection.enabled")
@@ -129,54 +152,47 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 	setString([]string{"metrics", "service", "type"}, gs.Metrics.Service.Type, "metrics.service.type")
 
 	// Resource requests and limits.
-	if len(gs.Resources.Requests) > 0 {
-		setNestedValue(values, []string{"resources", "requests"}, MapOrDefault(gs.Resources.Requests))
-	}
-	if len(gs.Resources.Limits) > 0 {
-		setNestedValue(values, []string{"resources", "limits"}, MapOrDefault(gs.Resources.Limits))
-	}
+	setStringMap([]string{"resources", "requests"}, gs.Resources.Requests, "resources.requests")
+	setStringMap([]string{"resources", "limits"}, gs.Resources.Limits, "resources.limits")
 
 	// Role metadata.
-	if len(gs.Role.Labels) > 0 {
-		setNestedValue(values, []string{"role", "labels"}, MapOrDefault(gs.Role.Labels))
-	}
+	setStringMap([]string{"role", "labels"}, gs.Role.Labels, "role.labels")
 
 	// Deployment tuning.
-	if len(gs.Deployment.Annotations) > 0 {
-		setNestedValue(values, []string{"deployment", "annotations"}, MapOrDefault(gs.Deployment.Annotations))
-	}
-	if len(gs.Deployment.Labels) > 0 {
-		setNestedValue(values, []string{"deployment", "labels"}, MapOrDefault(gs.Deployment.Labels))
-	}
+	setStringMap([]string{"deployment", "annotations"}, gs.Deployment.Annotations, "deployment.annotations")
+	setStringMap([]string{"deployment", "labels"}, gs.Deployment.Labels, "deployment.labels")
 	setInt([]string{"deployment", "containerPort"}, gs.Deployment.ContainerPort, "deployment.containerPort")
 	setInt([]string{"deployment", "replicas"}, gs.Deployment.Replicas, "deployment.replicas")
-	if len(gs.Deployment.NodeSelector) > 0 {
-		setNestedValue(values, []string{"deployment", "nodeSelector"}, MapOrDefault(gs.Deployment.NodeSelector))
-	}
-	setSliceOfMaps([]string{"deployment", "tolerations"}, gs.Deployment.Tolerations)
-	setAnyMap([]string{"deployment", "affinity"}, gs.Deployment.Affinity)
+	setStringMap([]string{"deployment", "nodeSelector"}, gs.Deployment.NodeSelector, "deployment.nodeSelector")
+	setSliceOfMaps([]string{"deployment", "tolerations"}, gs.Deployment.Tolerations, "deployment.tolerations")
+	setAnyMap([]string{"deployment", "affinity"}, gs.Deployment.Affinity, "deployment.affinity")
 	setString([]string{"deployment", "priorityClassName"}, gs.Deployment.PriorityClassName, "deployment.priorityClassName")
 	setBool([]string{"deployment", "hostNetwork"}, gs.Deployment.HostNetwork, "deployment.hostNetwork")
 	setString([]string{"deployment", "dnsPolicy"}, gs.Deployment.DNSPolicy, "deployment.dnsPolicy")
-	setAnyMap([]string{"deployment", "strategy"}, gs.Deployment.Strategy)
-	setSliceOfMaps([]string{"deployment", "extraVolumes"}, gs.Deployment.ExtraVolumes)
-	setSliceOfMaps([]string{"deployment", "extraVolumeMounts"}, gs.Deployment.ExtraVolumeMounts)
-	setSliceOfMaps([]string{"deployment", "extraEnvVars"}, gs.Deployment.ExtraEnvVars)
+	setAnyMap([]string{"deployment", "strategy"}, gs.Deployment.Strategy, "deployment.strategy")
+	setSliceOfMaps([]string{"deployment", "extraVolumes"}, gs.Deployment.ExtraVolumes, "deployment.extraVolumes")
+	setSliceOfMaps([]string{"deployment", "extraVolumeMounts"}, gs.Deployment.ExtraVolumeMounts, "deployment.extraVolumeMounts")
+	setSliceOfMaps([]string{"deployment", "extraEnvVars"}, gs.Deployment.ExtraEnvVars, "deployment.extraEnvVars")
 
 	// Reconcile behaviour.
 	setInt([]string{"reconcile", "defaultResyncPeriod"}, gs.Reconcile.DefaultResyncPeriod, "reconcile.defaultResyncPeriod")
 	setInt([]string{"reconcile", "defaultMaxConcurrentSyncs"}, gs.Reconcile.DefaultMaxConcurrentSyncs, "reconcile.defaultMaxConcurrentSyncs")
-	setIntMap([]string{"reconcile", "resourceResyncPeriods"}, gs.Reconcile.ResourceResyncPeriods)
-	setIntMap([]string{"reconcile", "resourceMaxConcurrentSyncs"}, gs.Reconcile.ResourceMaxConcurrentSyncs)
+	setIntMap([]string{"reconcile", "resourceResyncPeriods"}, gs.Reconcile.ResourceResyncPeriods, "reconcile.resourceResyncPeriods")
+	setIntMap([]string{"reconcile", "resourceMaxConcurrentSyncs"}, gs.Reconcile.ResourceMaxConcurrentSyncs, "reconcile.resourceMaxConcurrentSyncs")
 	if len(gs.Reconcile.Resources) > 0 {
-		setStringSlice([]string{"reconcile", "resources"}, gs.Reconcile.Resources)
-	} else if len(crdKinds) > 0 {
-		setStringSlice([]string{"reconcile", "resources"}, crdKinds)
+		setStringSlice([]string{"reconcile", "resources"}, gs.Reconcile.Resources, "reconcile.resources")
+	} else {
+		defaultsResources := defaults.stringSlice("reconcile.resources")
+		if len(defaultsResources) > 0 {
+			setStringSlice([]string{"reconcile", "resources"}, defaultsResources, "reconcile.resources")
+		} else if len(crdKinds) > 0 {
+			setStringSlice([]string{"reconcile", "resources"}, crdKinds, "reconcile.resources")
+		}
 	}
 
 	// Feature toggles.
 	setBool([]string{"enableCARM"}, gs.EnableCARM, "enableCARM")
-	fgDefaults := schemaFeatureGateDefaults()
+	fgDefaults := defaults.featureGates()
 	featureGateOverrides := map[string]any{}
 	if def, ok := fgDefaults["ServiceLevelCARM"]; !ok || gs.FeatureGates.ServiceLevelCARM != def {
 		featureGateOverrides["ServiceLevelCARM"] = BoolDefault(gs.FeatureGates.ServiceLevelCARM, def)
@@ -197,23 +213,62 @@ func ControllerValues(gs config.ValuesSpec, crdKinds []string) map[string]any {
 	return values
 }
 
-// schemaDefaultValue returns the raw default string for a given schema path
-func schemaDefaultValue(path string) string {
-	key := "${schema.spec." + strings.TrimSpace(path) + "}"
-	if v, ok := SchemaDefaults[key]; ok {
-		return strings.TrimSpace(v)
-	}
-	return ""
+// schemaDefaults wraps raw default strings and exposes typed helpers.
+type schemaDefaults struct {
+	values map[string]string
 }
 
-// schemaDefaultBool returns the boolean value of a schema default.
-func schemaDefaultBool(path string) bool {
-	v := strings.ToLower(strings.TrimSpace(schemaDefaultValue(path)))
+var controllerDefaultsAllowedRoots = map[string]struct{}{
+	"aws":            {},
+	"deletionPolicy": {},
+	"deployment":     {},
+	"resources":      {},
+	"role":           {},
+	"metrics":        {},
+	"log":            {},
+	"installScope":   {},
+	"watchNamespace": {},
+	"watchSelectors": {},
+	"resourceTags":   {},
+	"reconcile":      {},
+	"enableCARM":     {},
+	"featureGates":   {},
+	"serviceAccount": {},
+	"leaderElection": {},
+	"iamRole":        {},
+	"image":          {},
+}
+
+var controllerDefaultsSkipPaths = map[string]struct{}{
+	"aws.endpoint_url": {},
+}
+
+func newSchemaDefaults(raw map[string]string) schemaDefaults {
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		out[key] = strings.TrimSpace(v)
+	}
+	return schemaDefaults{values: out}
+}
+
+func (sd schemaDefaults) string(path string) string {
+	if sd.values == nil {
+		return ""
+	}
+	return strings.TrimSpace(sd.values[strings.TrimSpace(path)])
+}
+
+func (sd schemaDefaults) bool(path string) bool {
+	v := strings.ToLower(sd.string(path))
 	return v == "true"
 }
 
-func schemaDefaultInt(path string) int {
-	v := strings.TrimSpace(schemaDefaultValue(path))
+func (sd schemaDefaults) int(path string) int {
+	v := sd.string(path)
 	if v == "" {
 		return 0
 	}
@@ -223,8 +278,107 @@ func schemaDefaultInt(path string) int {
 	return 0
 }
 
-func schemaFeatureGateDefaults() map[string]bool {
-	raw := strings.TrimSpace(schemaDefaultValue("featureGates"))
+func (sd schemaDefaults) stringSlice(path string) []string {
+	raw := sd.string(path)
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	for i, item := range out {
+		out[i] = strings.TrimSpace(item)
+	}
+	return out
+}
+
+func (sd schemaDefaults) stringMap(path string) map[string]string {
+	raw := sd.string(path)
+	if raw == "" {
+		return nil
+	}
+	var out map[string]string
+	if err := json.Unmarshal([]byte(raw), &out); err == nil {
+		return out
+	}
+	var generic map[string]any
+	if err := json.Unmarshal([]byte(raw), &generic); err != nil {
+		return nil
+	}
+	converted := make(map[string]string, len(generic))
+	for k, v := range generic {
+		switch val := v.(type) {
+		case string:
+			converted[k] = strings.TrimSpace(val)
+		case float64:
+			converted[k] = strconv.FormatInt(int64(val), 10)
+		case bool:
+			if val {
+				converted[k] = "true"
+			} else {
+				converted[k] = "false"
+			}
+		default:
+			converted[k] = fmt.Sprint(val)
+		}
+	}
+	return converted
+}
+
+func (sd schemaDefaults) intMap(path string) map[string]int {
+	raw := sd.string(path)
+	if raw == "" {
+		return nil
+	}
+	var out map[string]int
+	if err := json.Unmarshal([]byte(raw), &out); err == nil {
+		return out
+	}
+	var generic map[string]any
+	if err := json.Unmarshal([]byte(raw), &generic); err != nil {
+		return nil
+	}
+	converted := make(map[string]int, len(generic))
+	for k, v := range generic {
+		switch val := v.(type) {
+		case float64:
+			converted[k] = int(val)
+		case string:
+			if parsed, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
+				converted[k] = parsed
+			}
+		}
+	}
+	return converted
+}
+
+func (sd schemaDefaults) anyMap(path string) map[string]any {
+	raw := sd.string(path)
+	if raw == "" {
+		return nil
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func (sd schemaDefaults) sliceOfMaps(path string) []map[string]any {
+	raw := sd.string(path)
+	if raw == "" {
+		return nil
+	}
+	var out []map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func (sd schemaDefaults) featureGates() map[string]bool {
+	raw := sd.string("featureGates")
 	if raw == "" {
 		return map[string]bool{}
 	}
@@ -252,80 +406,110 @@ func DefaultTag(gs config.ValuesSpec) string {
 	return strings.TrimSpace(gs.Version)
 }
 
-func controllerDefaults(gs config.ValuesSpec, chartDefaults map[string]any) (map[string]any, map[string]string) {
-	allowedRoots := map[string]struct{}{
-		"aws":            {},
-		"deletionPolicy": {},
-		"deployment":     {},
-		"resources":      {},
-		"role":           {},
-		"metrics":        {},
-		"log":            {},
-		"installScope":   {},
-		"watchNamespace": {},
-		"watchSelectors": {},
-		"resourceTags":   {},
-		"reconcile":      {},
-		"enableCARM":     {},
-		"featureGates":   {},
-		"serviceAccount": {},
-		"leaderElection": {},
-		"iamRole":        {},
-		"image":          {},
+func controllerDefaults(gs config.ValuesSpec, chartDefaults map[string]any) map[string]string {
+	resolved := resolveControllerDefaults(gs, chartDefaults)
+	filtered := make(map[string]string, len(resolved))
+	for key, raw := range resolved {
+		if _, skip := controllerDefaultsSkipPaths[key]; skip {
+			continue
+		}
+		encodedSegments := strings.Split(key, ".")
+		if len(encodedSegments) == 0 {
+			continue
+		}
+		root := decodeKeySegment(encodedSegments[0])
+		if _, ok := controllerDefaultsAllowedRoots[root]; !ok {
+			continue
+		}
+		filtered[key] = raw
 	}
+	return filtered
+}
 
-	skipPaths := map[string]struct{}{
-		"aws.endpoint_url": {},
-	}
-
-	rawDefaults := resolveControllerDefaults(gs, chartDefaults)
-
+func buildControllerDefaultTree(rawDefaults map[string]string) map[string]any {
 	values := map[string]any{}
 	for key, raw := range rawDefaults {
-		if _, skip := skipPaths[key]; skip {
+		if _, skip := controllerDefaultsSkipPaths[key]; skip {
 			continue
 		}
-		segments := strings.Split(key, ".")
-		if len(segments) == 0 {
+		encodedSegments := strings.Split(key, ".")
+		if len(encodedSegments) == 0 {
 			continue
 		}
-		if _, ok := allowedRoots[segments[0]]; !ok {
+		root := decodeKeySegment(encodedSegments[0])
+		if _, ok := controllerDefaultsAllowedRoots[root]; !ok {
 			continue
+		}
+		segments := make([]string, len(encodedSegments))
+		for i, seg := range encodedSegments {
+			segments[i] = decodeKeySegment(seg)
 		}
 		setNestedValue(values, segments, formatSchemaDefault(segments, raw))
 	}
+	return values
+}
 
-	return values, rawDefaults
+const encodedDot = "\uff0e"
+
+func encodeKeySegment(seg string) string {
+	if seg == "" {
+		return seg
+	}
+	return strings.ReplaceAll(seg, ".", encodedDot)
+}
+
+func decodeKeySegment(seg string) string {
+	if seg == "" {
+		return seg
+	}
+	return strings.ReplaceAll(seg, encodedDot, ".")
 }
 
 func resolveControllerDefaults(gs config.ValuesSpec, chartDefaults map[string]any) map[string]string {
-	resolved := map[string]string{}
 	flattened := map[string]string{}
 	if chartDefaults != nil {
 		flattenChartDefaults(nil, chartDefaults, flattened)
 	}
 
-	for schemaRef, fallback := range SchemaDefaults {
-		segments := schemaPathSegments(schemaRef)
-		if len(segments) == 0 {
-			continue
-		}
-		key := strings.Join(segments, ".")
-		if val, ok := flattened[key]; ok {
-			resolved[key] = strings.TrimSpace(val)
-			continue
-		}
-		resolved[key] = strings.TrimSpace(resolveTokens(fallback, gs))
+	resolved := map[string]string{}
+	for key, val := range flattened {
+		normalized := normalizeChartTokens(strings.TrimSpace(val))
+		resolved[key] = strings.TrimSpace(resolveTokens(normalized, gs))
 	}
 
 	return resolved
 }
 
+func normalizeChartTokens(in string) string {
+	if in == "" {
+		return in
+	}
+	replacements := map[string]string{
+		"%CONTROLLER_SERVICE%": "_CONTROLLER_SERVICE_",
+		"%CONTROLLER_VERSION%": "_CONTROLLER_VERSION_",
+		"%K8S_NAMESPACE%":      "_NAMESPACE_",
+	}
+	out := in
+	for src, dst := range replacements {
+		if strings.Contains(out, src) {
+			out = strings.ReplaceAll(out, src, dst)
+		}
+	}
+	return out
+}
+
 func flattenChartDefaults(prefix []string, value any, out map[string]string) {
 	// Recurse only for nested maps. Treat everything else as a scalar.
 	if m, ok := value.(map[string]any); ok {
+		key := strings.Join(prefix, ".")
+		if key != "" && len(m) == 0 {
+			out[key] = "{}"
+		}
+		if len(m) == 0 {
+			return
+		}
 		for k, child := range m {
-			flattenChartDefaults(append(prefix, k), child, out)
+			flattenChartDefaults(append(prefix, encodeKeySegment(k)), child, out)
 		}
 		return
 	}
@@ -444,6 +628,107 @@ func setNestedValue(root map[string]any, path []string, val any) {
 		}
 		cur = next
 	}
+}
+
+func normalizeStringSlice(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func intMapsEqual(a, b map[string]int) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || bv != v {
+			return false
+		}
+	}
+	return true
+}
+
+func stringMapsEqual(a, b map[string]string) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if bv, ok := b[k]; !ok || strings.TrimSpace(bv) != strings.TrimSpace(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func mapsJSONEqual(a, b map[string]any) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) == 0 || len(b) == 0 {
+		return false
+	}
+	aj, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bj, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return string(aj) == string(bj)
+}
+
+func slicesOfMapsEqual(a, b []map[string]any) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) == 0 || len(b) == 0 {
+		return false
+	}
+	aj, err := json.Marshal(a)
+	if err != nil {
+		return false
+	}
+	bj, err := json.Marshal(b)
+	if err != nil {
+		return false
+	}
+	return string(aj) == string(bj)
 }
 
 func formatSchemaDefault(path []string, raw string) string {
