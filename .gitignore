@@ -6,4 +6,4 @@ ack-kro-gen.txt
 *.code-workspace
 /.github/**/*.md
 
-**/reference
+**/refs
