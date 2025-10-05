@@ -89,6 +89,8 @@ spec:
         spec:
           name: ${schema.spec.name}-crd-graph
     - id: graph-serviceaccount
+      includeWhen:
+        - ${schema.spec.values.serviceAccount.create}
       template:
         apiVersion: v1
         kind: ServiceAccount
@@ -104,6 +106,8 @@ spec:
           name: ${schema.spec.serviceAccount.name}
           namespace: ${schema.spec.namespace}
     - id: graph-clusterrole
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRole
@@ -212,6 +216,8 @@ spec:
               - patch
               - update
     - id: graph-clusterrole-2
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRole
@@ -234,6 +240,8 @@ spec:
               - list
               - watch
     - id: graph-clusterrolebinding
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRoleBinding
@@ -255,6 +263,8 @@ spec:
             name: ${schema.spec.serviceAccount.name}
             namespace: ${schema.spec.namespace}
     - id: graph-clusterrolebinding-2
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: ClusterRoleBinding
@@ -276,6 +286,8 @@ spec:
             name: ${schema.spec.serviceAccount.name}
             namespace: ${schema.spec.namespace}
     - id: graph-role
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -299,6 +311,8 @@ spec:
               - list
               - watch
     - id: graph-role-2
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -339,6 +353,8 @@ spec:
               - list
               - watch
     - id: graph-role-3
+      includeWhen:
+        - ${schema.spec.values.leaderElection.enabled}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: Role
@@ -408,6 +424,8 @@ spec:
               - patch
               - update
     - id: graph-rolebinding
+      includeWhen:
+        - ${schema.spec.values.installScope == "cluster"}
       template:
         apiVersion: rbac.authorization.k8s.io/v1
         kind: RoleBinding

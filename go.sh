@@ -1,4 +1,56 @@
 #!/usr/bin/env bash
+#
+# go.sh - Convenience script for ack-kro-gen development and validation
+#
+# This script automates the build-run-validate cycle for the ACK KRO generator.
+# It's used for agent-based validation testing, not traditional Go unit tests.
+#
+# USAGE:
+#   ./go.sh                    # Run with defaults
+#   OFFLINE=true ./go.sh       # Run in offline mode (no network)
+#   CONCURRENCY=8 ./go.sh      # Run with 8 parallel services
+#
+# ENVIRONMENT VARIABLES:
+#   BIN          - CLI binary path (default: ./ack-kro-gen)
+#   GRAPHS       - Graph config file (default: graphs.yaml)
+#   OUT          - Output directory (default: out)
+#   CACHE        - Chart cache directory (default: .cache/charts)
+#   CONCURRENCY  - Parallel services (default: 4)
+#   LOG_LEVEL    - Log verbosity: debug|info (default: debug)
+#   OFFLINE      - Offline mode, no network access (default: false)
+#
+# WORKFLOW:
+#   1. Clean previous outputs from out/ack/
+#   2. Display environment configuration
+#   3. Build the CLI binary
+#   4. Run the generator with configured settings
+#   5. Validate outputs:
+#      - Check file sizes and counts
+#      - Peek at generated content
+#      - Grep for KRO RGD structure markers
+#
+# VALIDATION:
+#   Agent-based validation focuses on:
+#   - Placeholder substitution correctness
+#   - Deterministic resource ordering
+#   - Schema reference generation accuracy
+#   - Completeness of generated RGDs against chart contents
+#   - Valid KRO ResourceGraphDefinition structure
+#
+# OUTPUT:
+#   - Generated RGDs in out/ack/<service>-{crds,ctrl}.yaml
+#   - Build and run logs in out/go.log
+#
+# EXAMPLES:
+#   # Quick offline validation with cached charts
+#   OFFLINE=true ./go.sh
+#
+#   # Full online run with maximum concurrency
+#   CONCURRENCY=8 OFFLINE=false LOG_LEVEL=info ./go.sh
+#
+#   # Debug single service generation
+#   LOG_LEVEL=debug CONCURRENCY=1 ./go.sh
+#
 set -euo pipefail
 
 BIN="${BIN:-./ack-kro-gen}"
@@ -6,7 +58,7 @@ GRAPHS="${GRAPHS:-graphs.yaml}"
 OUT="${OUT:-out}"
 CACHE="${CACHE:-.cache/charts}"
 CONCURRENCY="${CONCURRENCY:-4}"
-LOG_LEVEL="${LOG_LEVEL:-debug}"   # accepted, even if not all paths use it yet
+LOG_LEVEL="${LOG_LEVEL:-debug}"
 OFFLINE="${OFFLINE:-false}"
 
 step() { printf "\n==> %s\n" "$*"; }

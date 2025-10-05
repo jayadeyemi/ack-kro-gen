@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"github.com/jayadeyemi/ack-kro-gen/internal/classify"
+	"github.com/jayadeyemi/ack-kro-gen/internal/conditionals"
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 	"gopkg.in/yaml.v3"
 )
 
 // Build controller-side resources from non-CRD objects.
-func buildControllerResources(list []classify.Obj) ([]Resource, error) {
+func buildControllerResources(list []classify.Obj, conditionsMap map[string][]conditionals.Condition) ([]Resource, error) {
 	res := make([]Resource, 0, len(list))
 	seen := map[string]int{}
 	for _, o := range list {
@@ -25,7 +26,32 @@ func buildControllerResources(list []classify.Obj) ([]Resource, error) {
 		if seen[id] > 1 {
 			id = fmt.Sprintf("%s-%d", id, seen[id])
 		}
-		res = append(res, Resource{ID: id, Template: m})
+
+		// Find matching condition for this resource
+		var includeWhen []string
+		for _, condList := range conditionsMap {
+			for _, cond := range condList {
+				if conditionals.MatchConditionToResource(cond, o.Kind, o.RawYAML) {
+					// Simplify the CEL expression
+					celExpr := conditionals.SimplifyCondition(cond.CELExpr)
+					// Wrap in ${} if not already wrapped
+					if !strings.HasPrefix(celExpr, "${") {
+						celExpr = fmt.Sprintf("${%s}", celExpr)
+					}
+					includeWhen = append(includeWhen, celExpr)
+					break
+				}
+			}
+			if len(includeWhen) > 0 {
+				break
+			}
+		}
+
+		res = append(res, Resource{
+			ID:          id,
+			IncludeWhen: includeWhen,
+			Template:    m,
+		})
 	}
 	return res, nil
 }

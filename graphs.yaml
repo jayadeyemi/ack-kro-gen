@@ -1,12 +1,41 @@
-# Graph definitions now rely on config defaults for placeholder values.
 # Only service and version are required here.
 
 graphs:
-  - service: s3
-    version: "1.1.1"
-
   - service: ec2
     version: "1.7.0"
 
   - service: rds
     version: "1.6.2"
+
+  - service: s3
+    version: "1.1.1"
+
+  - service: iam
+    version: "1.5.2"
+
+  - service: cloudwatchlogs
+    version: "1.1.1"
+
+  - service: route53
+    version: "1.1.1"
+
+  - service: kms
+    version: "1.1.1"
+
+  - service: sns
+    version: "1.2.2"
+
+  - service: sqs
+    version: "1.1.0"
+
+  - service: wafv2
+    version: "1.1.0"
+
+  - service: opensearchservice
+    version: "1.1.1"
+
+  - service: cloudtrail
+    version: "1.0.28"
+
+  - service: secretsmanager
+    version: "1.1.1"

@@ -15,6 +15,8 @@ spec:
           resources: string[] | default=["AdoptedResource","CapacityReservation","DHCPOptions","ElasticIPAddress","FieldExport","FlowLog","Instance","InternetGateway","LaunchTemplate","NATGateway","NetworkACL","RouteTable","SecurityGroup","Subnet","TransitGateway","TransitGatewayVPCAttachment","VPCEndpoint","VPCEndpointServiceConfiguration","VPCPeeringConnection","VPC"]
   resources:
     - id: graph-adoptedresources
+      includeWhen:
+        - ${"AdoptedResource" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -260,6 +262,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-capacityreservations
+      includeWhen:
+        - ${"CapacityReservation" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -667,6 +671,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-dhcpoptions
+      includeWhen:
+        - ${"DHCPOptions" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -849,6 +855,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-elasticipaddresses
+      includeWhen:
+        - ${"ElasticIPAddress" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1019,6 +1027,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-fieldexports
+      includeWhen:
+        - ${"FieldExport" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1160,6 +1170,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-flowlogs
+      includeWhen:
+        - ${"FlowLog" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1404,6 +1416,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-instances
+      includeWhen:
+        - ${"Instance" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -2293,6 +2307,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-internetgateways
+      includeWhen:
+        - ${"InternetGateway" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -2497,6 +2513,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-launchtemplates
+      includeWhen:
+        - ${"LaunchTemplate" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -3217,6 +3235,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-natgateways
+      includeWhen:
+        - ${"NATGateway" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -3510,6 +3530,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-networkacls
+      includeWhen:
+        - ${"NetworkACL" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -3742,6 +3764,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-routetables
+      includeWhen:
+        - ${"RouteTable" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4084,6 +4108,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-securitygroups
+      includeWhen:
+        - ${"SecurityGroup" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4485,6 +4511,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-subnets
+      includeWhen:
+        - ${"Subnet" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -4788,6 +4816,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-transitgateways
+      includeWhen:
+        - ${"TransitGateway" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -5205,6 +5235,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-vpcendpoints
+      includeWhen:
+        - ${"VPCEndpoint" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -5779,6 +5811,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-vpcpeeringconnections
+      includeWhen:
+        - ${"VPCPeeringConnection" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -6089,6 +6123,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-vpcs
+      includeWhen:
+        - ${"VPC" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition

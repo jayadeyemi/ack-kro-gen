@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jayadeyemi/ack-kro-gen/internal/conditionals"
 	"github.com/jayadeyemi/ack-kro-gen/internal/config"
 	"github.com/jayadeyemi/ack-kro-gen/internal/placeholders"
 
@@ -37,6 +38,8 @@ type Result struct {
 	CRDs []string
 	// ChartValues captures the chart's default values from values.yaml for downstream defaults processing.
 	ChartValues map[string]any
+	// Conditions maps template file paths to extracted conditional logic
+	Conditions map[string][]conditionals.Condition
 }
 
 // RenderChart loads a Helm chart archive (or directory), renders templates with values derived from
@@ -114,8 +117,26 @@ func RenderChart(ctx context.Context, chartArchivePath string, gs config.ValuesS
 		ordered[k] = out[k]
 	}
 
-	// Return controller manifests (ordered) and raw CRDs.
-	return &Result{RenderedFiles: ordered, CRDs: crds, ChartValues: chartDefaults}, nil
+	// Extract conditionals from original template files (before rendering)
+	templateConditions := make(map[string][]conditionals.Condition)
+	for _, file := range ch.Templates {
+		// Only process YAML template files, not helpers or other non-manifest templates
+		if strings.HasSuffix(file.Name, ".yaml") || strings.HasSuffix(file.Name, ".yml") {
+			conds := conditionals.ExtractConditions(file.Name, string(file.Data))
+			if len(conds) > 0 {
+				normalizedPath := filepath.ToSlash(file.Name)
+				templateConditions[normalizedPath] = conds
+			}
+		}
+	}
+
+	// Return controller manifests (ordered), raw CRDs, chart defaults, and extracted conditions
+	return &Result{
+		RenderedFiles: ordered,
+		CRDs:          crds,
+		ChartValues:   chartDefaults,
+		Conditions:    templateConditions,
+	}, nil
 }
 
 // buildValues constructs the Helm values map consumed by the ACK controller chart

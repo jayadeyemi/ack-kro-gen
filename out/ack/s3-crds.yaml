@@ -15,6 +15,8 @@ spec:
           resources: string[] | default=["AdoptedResource","Bucket","FieldExport"]
   resources:
     - id: graph-adoptedresources
+      includeWhen:
+        - ${"AdoptedResource" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -260,6 +262,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-buckets
+      includeWhen:
+        - ${"Bucket" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition
@@ -1517,6 +1521,8 @@ spec:
               subresources:
                 status: {}
     - id: graph-fieldexports
+      includeWhen:
+        - ${"FieldExport" in schema.spec.values.reconcile.resources}
       template:
         apiVersion: apiextensions.k8s.io/v1
         kind: CustomResourceDefinition

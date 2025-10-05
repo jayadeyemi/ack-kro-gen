@@ -1,6 +1,6 @@
 # ack-kro-gen
 
-A production-ready Go CLI that generates **KRO ResourceGraphDefinitions (RGDs)** for AWS ACK controllers. It automates the end-to-end process of pulling upstream ACK Helm charts via the Helm SDK, rendering them fully in-memory, performing placeholder substitution, classifying objects by type, and emitting deterministic graph definitions under `out/<service>.rgd.yaml`.
+A production-ready Go CLI that generates **KRO ResourceGraphDefinitions (RGDs)** for AWS ACK controllers. It automates the end-to-end process of pulling upstream ACK Helm charts via the Helm SDK, rendering them fully in-memory, performing placeholder substitution, classifying objects by type, and emitting deterministic graph definitions under `out/ack/`.
 
 ## Goal
 The project bridges **AWS ACK controllers** (delivered as Helm charts) with **KRO ResourceGraphDefinitions**, enabling:
@@ -12,14 +12,39 @@ The project bridges **AWS ACK controllers** (delivered as Helm charts) with **KR
 This allows DevOps and platform engineers to model, version, and deploy ACK controllers declaratively via KRO without manually maintaining YAML for each service.
 
 ## Features
-- Go 1.22
+- Go 1.22+
 - Pure Helm SDK usage (no shelling out)
-- OCI chart support
-- Offline mode with a local chart cache
+- OCI chart support with public ECR integration
+- Offline mode with local chart cache (`.cache/charts/`)
 - Deterministic output ordering and formatting
 - Strict error handling and logging
 - Modular design (`config`, `helmfetch`, `render`, `classify`, `placeholders`, `kro`)
-- Unit tests with no network access
+- Agent-based validation testing with offline chart caching
+- Concurrent processing of multiple services with configurable concurrency
+
+## Architecture
+
+The CLI follows a deterministic pipeline architecture:
+
+```
+graphs.yaml → config → helmfetch → .cache/charts/*.tgz → render → classify → placeholders → kro → out/ack/*.yaml
+```
+
+**Pipeline Stages:**
+
+1. **Configuration** (`config`): Parse `graphs.yaml` with smart defaults
+2. **Chart Fetching** (`helmfetch`): Download/cache OCI charts from AWS ECR
+3. **Rendering** (`render`): Helm SDK rendering + Phase 1 placeholders (literals → sentinels)
+4. **Classification** (`classify`): Group objects by type with deterministic ordering
+5. **Placeholder Transformation** (`placeholders`): Phase 2 (sentinels → schema references)
+6. **RGD Generation** (`kro`): Build ResourceGraphDefinitions with schema integration
+7. **Output**: Write `<service>-crds.yaml` and `<service>-ctrl.yaml` per service
+
+**Key Design Principles:**
+- No network access after chart caching (enables offline/air-gapped usage)
+- Deterministic output ordering (CRDs → Core → RBAC → Deployments → Others)
+- Two-phase placeholder system preserving YAML structure
+- Concurrent multi-service processing with error isolation
 
 ## Install
 Build the CLI from the `cmd` directory:
@@ -49,39 +74,97 @@ Run in offline mode (charts must already exist in the cache):
   ```
   which drops the binary into `$GOBIN` or `$GOPATH/bin` so you can run `ack-kro-gen` anywhere.
 
-## graphs.yaml schema
-Each service entry must define the ACK `service` name and the chart `version`. Remaining fields are optional overrides—defaults include:
+## graphs.yaml Schema
+Each service entry must define the ACK `service` name and the chart `version`. All other fields are optional overrides with smart defaults:
+
+**Required fields:**
+- `service`: AWS service name (e.g., `s3`, `ec2`, `rds`)
+- `version`: Chart version to pull from `public.ecr.aws/aws-controllers-k8s/<service>-chart`
+
+**Default values (auto-populated if not specified):**
 - `releaseName`: `ack-<service>-controller`
 - `namespace`: `ack-system`
-- `image.tag`: falls back to the chart `version`
+- `image.repository`: `public.ecr.aws/aws-controllers-k8s/<service>-controller`
+- `image.tag`: Falls back to `version` if not specified
+- `serviceAccount.create`: `true`
+- `enableCARM`: `true`
+- `featureGates.ReadOnlyResources`: `true`
+- `featureGates.ResourceAdoption`: `true`
 
-Example:
-
+**Minimal example:**
 ```yaml
 graphs:
   - service: s3
-    version: "1.2.27"
-    # Optional overrides shown below. Omit them to accept defaults.
-    releaseName: "custom-release"         # default: ack-s3-controller
-    namespace: "custom-namespace"         # default: ack-system
-    image:
-      repository: "__KRO_IMAGE_REPOSITORY__"
-      tag: "__KRO_IMAGE_TAG__"            # default: version (1.2.27)
-    serviceAccount:
-      name: "__KRO_SA_NAME__"
-      annotations:
-        eks.amazonaws.com/role-arn: "__KRO_IRSA_ARN__"
-    controller:
-      logLevel: "__KRO_LOG_LEVEL__"
-      logDev: "__KRO_LOG_DEV__"
-      awsRegion: "__KRO_AWS_REGION__"
-    extras:
-      values: {}
+    version: "1.1.1"
+
+  - service: ec2
+    version: "1.7.0"
+
+  - service: rds
+    version: "1.6.2"
 ```
 
-## Adding a service
-1. Append a new entry in `graphs.yaml` with at least `service` and `version`. Override `releaseName`, `namespace`, image settings, or controller flags only when you need non-default behavior.
-2. Run the CLI with your cache and output paths.
+**Full example with overrides:**
+```yaml
+graphs:
+  - service: s3
+    version: "1.1.1"
+    releaseName: "custom-s3-controller"  # Override default
+    namespace: "custom-namespace"        # Override default
+    image:
+      repository: "custom-repo/s3-controller"
+      tag: "v1.1.1"
+      pullPolicy: "IfNotPresent"
+    serviceAccount:
+      create: true
+      name: "custom-sa-name"
+      annotations:
+        eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/s3-controller"
+    aws:
+      region: "us-west-2"
+      endpoint_url: "https://s3.us-west-2.amazonaws.com"
+    log:
+      level: "debug"
+      enable_development_logging: true
+    deployment:
+      replicas: 2
+      containerPort: 8080
+      annotations:
+        prometheus.io/scrape: "true"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+    reconcile:
+      defaultResyncPeriod: 600
+      defaultMaxConcurrentSyncs: 5
+```
+
+See `internal/config/config.go` for the complete `ValuesSpec` structure and all available fields.
+
+## Output Structure
+The CLI generates two RGD files per service in the `out/ack/` directory:
+- `<service>-crds.yaml`: CustomResourceDefinition graph for the service
+- `<service>-ctrl.yaml`: Controller resources graph (ServiceAccount, RBAC, Deployment, etc.)
+
+Example output for S3:
+```
+out/
+└── ack/
+    ├── s3-crds.yaml    # CRDs for S3 resources
+    ├── s3-ctrl.yaml    # S3 controller deployment
+    ├── ec2-crds.yaml   # CRDs for EC2 resources
+    └── ec2-ctrl.yaml   # EC2 controller deployment
+```
+
+## Adding a Service
+1. Add an entry to `graphs.yaml` with `service` and `version` (minimum required)
+2. Override defaults only when needed (see `config.ValuesSpec` for available fields)
+3. Run the CLI: `./ack-kro-gen --graphs graphs.yaml --out out --charts-cache .cache/charts`
+4. Find generated RGDs in `out/ack/<service>-crds.yaml` and `out/ack/<service>-ctrl.yaml`
 
 ## Offline mode
 - Pre-populate `--charts-cache` with the required ACK charts (either from a prior online run or manual download).
@@ -92,7 +175,34 @@ graphs:
 - Stable resource IDs: `<kind>-<name>` kebab‑cased and deduplicated.
 - Canonical YAML encoding ensures reproducible diffs.
 
-## Tests
-- Placeholder substitution only modifies scalar strings, preserving structure.
-- Classification ensures objects are grouped and ordered consistently.
-- End-to-end offline render validated with a local dummy chart in `internal/render/testdata/dummychart`.
+## Validation & Testing
+Validation is performed via agent-based testing using the `./go.sh` convenience script:
+
+```bash
+./go.sh  # Builds, runs generator, and validates outputs
+```
+
+The script:
+1. Cleans previous outputs
+2. Builds the CLI
+3. Runs the generator with offline cached charts
+4. Validates generated RGDs for:
+   - Placeholder substitution correctness
+   - Deterministic resource ordering
+   - Schema reference generation accuracy
+   - Completeness against chart contents
+   - Valid KRO ResourceGraphDefinition structure
+
+**Environment variables for `./go.sh`:**
+- `BIN`: CLI binary path (default: `./ack-kro-gen`)
+- `GRAPHS`: Graph config file (default: `graphs.yaml`)
+- `OUT`: Output directory (default: `out`)
+- `CACHE`: Chart cache directory (default: `.cache/charts`)
+- `CONCURRENCY`: Parallel services (default: `4`)
+- `LOG_LEVEL`: Log verbosity (default: `debug`)
+- `OFFLINE`: Offline mode (default: `false`)
+
+Example:
+```bash
+OFFLINE=true CONCURRENCY=8 ./go.sh
+```

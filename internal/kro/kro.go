@@ -47,8 +47,25 @@ type SchemaSpec struct {
 }
 
 type Resource struct {
-	ID       string         `yaml:"id"`
-	Template map[string]any `yaml:"template"`
+	ID          string         `yaml:"id"`
+	IncludeWhen []string       `yaml:"includeWhen,omitempty"`
+	Template    map[string]any `yaml:"template"`
+}
+
+// extractReconcileResources gets the resources list from chart values
+func extractReconcileResources(chartValues map[string]any) []string {
+	if reconcile, ok := chartValues["reconcile"].(map[string]any); ok {
+		if resources, ok := reconcile["resources"].([]any); ok {
+			var result []string
+			for _, r := range resources {
+				if s, ok := r.(string); ok {
+					result = append(result, s)
+				}
+			}
+			return result
+		}
+	}
+	return []string{} // Empty list if not found
 }
 
 // EmitRGDs orchestrates parse → classify → build → write.
@@ -84,13 +101,16 @@ func EmitRGDs(gs config.ValuesSpec, r *render.Result, outDir string) ([]string, 
 
 	groups := classify.Classify(objs)
 
+	// Extract reconcile.resources from chart values
+	reconcileResources := extractReconcileResources(r.ChartValues)
+
 	// Build per-domain resources.
-	crdResources, err := buildCRDResources(groups.CRDs)
+	crdResources, err := buildCRDResources(groups.CRDs, reconcileResources)
 	if err != nil {
 		return nil, err
 	}
 	crdKinds := extractCRDKinds(groups.CRDs)
-	ctrlResources, err := buildControllerResources(append(append(append(groups.Core, groups.RBAC...), groups.Deployments...), groups.Others...))
+	ctrlResources, err := buildControllerResources(append(append(append(groups.Core, groups.RBAC...), groups.Deployments...), groups.Others...), r.Conditions)
 	if err != nil {
 		return nil, err
 	}

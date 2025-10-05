@@ -1,3 +1,10 @@
+// Package placeholders/yaml implements Phase 2 of the placeholder transformation:
+// converting sentinel tokens to KRO schema references while preserving YAML structure.
+//
+// ReplaceYAMLScalars walks the YAML node tree and applies ApplySentinelToSchema to
+// every scalar value, converting tokens like "_NAME_" to "${schema.spec.name}".
+// This ensures only scalar values are transformed, preserving YAML structure.
+
 package placeholders
 
 import (

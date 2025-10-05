@@ -1,3 +1,21 @@
+// Package placeholders implements a two-phase transformation system for converting
+// Helm-rendered manifests into KRO ResourceGraphDefinitions with schema-driven placeholders.
+//
+// Phase 1: Runtime Sentinels (ApplyRuntimeSentinels)
+//   - Replaces literal values from ValuesSpec with sentinel tokens
+//   - Example: "ack-s3-controller" → "_NAME_"
+//   - Applied during chart rendering (internal/render)
+//
+// Phase 2: Schema References (ApplySentinelToSchema)
+//   - Converts sentinel tokens to KRO schema placeholder paths
+//   - Example: "_NAME_" → "${schema.spec.name}"
+//   - Applied during YAML writing via ReplaceYAMLScalars (internal/kro)
+//
+// Optional: Default Materialization (ApplySchemaDefaults)
+//   - Replaces schema placeholders with concrete default values
+//   - Only used when generating examples or materializing defaults
+//   - Not used in normal RGD generation flow
+
 package placeholders
 
 import (

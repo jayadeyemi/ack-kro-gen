@@ -1,3 +1,10 @@
+// Package placeholders/runtime implements Phase 1 of the placeholder transformation:
+// replacing runtime literal values with sentinel tokens.
+//
+// This phase runs during chart rendering and converts concrete values from the
+// ValuesSpec (like "ack-s3-controller", "us-west-2") into sentinel tokens
+// (like "_NAME_", "_AWS_REGION_") that will later be converted to schema references.
+
 package placeholders
 
 import (
